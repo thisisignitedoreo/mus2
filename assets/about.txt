@@ -1,0 +1,14 @@
+Keybinds:
+-  1, 2, 3, 4: tabs control
+-  SPACE: play/pause
+-  [<], [>]: backward/forward
+-  DEL while on playlist tab: clear playlist
+-  ESC while on album page: go back to album list
+-  ESC while focused searchbar: unfocus it
+-  SHIFT while scrolling volume: change by 1%
+
+Made by aciddev_ under copyleft license.
+Free to use for anything.
+
+Thank you for using mus! Star it pretty-please:
+https://github.com/thisisignitedoreo/mus2 :^)

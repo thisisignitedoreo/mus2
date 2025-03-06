@@ -1,0 +1,3 @@
+[submodule "ext/strap"]
+	path = ext/strap
+	url = https://github.com/thisisignitedoreo/strap.git
