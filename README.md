@@ -1,5 +1,10 @@
 # mus2
-Simple from-scratch music player, rewrite of [mus](https://github.com/thisisignitedoreo/mus)
+Simple and fast music player. Rewrite of [mus](https://github.com/thisisignitedoreo/mus).
+
+Features:
+- MP3 and FLAC tag support.
+- Album scanning in directory trees.
+- Simple browse tab and a search box.
 
 ## Quickstart
 Download a binary from releases, or build from source:
