@@ -3,7 +3,7 @@ typedef struct {
     Color bg, mg_off, mg, fg_off, fg, link;
 } Theme;
 
-Theme theme = {
+Theme dark_theme = {
     {0x18, 0x18, 0x18, 0xFF},
     {0x50, 0x50, 0x50, 0xFF},
     {0x60, 0x60, 0x60, 0xFF},
@@ -11,6 +11,17 @@ Theme theme = {
     {0xFF, 0xFF, 0xFF, 0xFF},
     {0xA0, 0xA0, 0xFF, 0xFF},
 };
+
+Theme light_theme = {
+    {0xFF, 0xFF, 0xFF, 0xFF},
+    {0xD0, 0xD0, 0xD0, 0xFF},
+    {0xC0, 0xC0, 0xC0, 0xFF},
+    {0x20, 0x20, 0x20, 0xFF},
+    {0x00, 0x00, 0x00, 0xFF},
+    {0x50, 0x50, 0xFF, 0xFF},
+};
+
+Theme* theme = &dark_theme;
 
 define_array_struct(DrawStack, Rectangle)
 
@@ -151,12 +162,12 @@ bool ui_draw_button(float x, float y, Texture icon, Color bg, Color bg_on, Color
 
 void ui_draw_menubar(void) {
     ui_add_frame(0, 0, GetScreenWidth(), font_size*1.5f);
-    ui_clear_frame(theme.mg_off);
+    ui_clear_frame(theme->mg_off);
 
     Rectangle frame = ui_get_frame();
 
     // mus
-    float mus_size = ui_draw_text(font_size*0.25f, font_size*0.25f, sv("mus"), theme.fg, 0, 0, 1e9);
+    float mus_size = ui_draw_text(font_size*0.25f, font_size*0.25f, sv("mus"), theme->fg, 0, 0, 1e9);
 
     // tab buttons
     float c = font_size*0.5f + mus_size;
@@ -167,8 +178,8 @@ void ui_draw_menubar(void) {
         bool hovered = ui_mouse_in(c, font_size*0.25f, size + font_size*0.5f, font_size);
         if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
         if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) current_tab = i;
-        ui_draw_rect(c, font_size*0.25f, size + font_size*0.5f, font_size, i == current_tab ? theme.fg : theme.mg);
-        ui_draw_text(c + font_size*0.25f, font_size*0.25f, name, i == current_tab ? theme.mg_off : theme.fg, 0, 0, size);
+        ui_draw_rect(c, font_size*0.25f, size + font_size*0.5f, font_size, i == current_tab ? theme->fg : theme->mg);
+        ui_draw_text(c + font_size*0.25f, font_size*0.25f, name, i == current_tab ? theme->mg_off : theme->fg, 0, 0, size);
         c += size + font_size*0.5f;
     }
 
@@ -185,16 +196,16 @@ void ui_draw_menubar(void) {
         if (music_get_volume() < 0.0f) music_set_volume(0.0f);
         if (music_get_volume() > 1.0f) music_set_volume(1.0f);
         cursor = MOUSE_CURSOR_RESIZE_NS;
-        ui_draw_rect(vx, vy, vw, vh, theme.mg);
+        ui_draw_rect(vx, vy, vw, vh, theme->mg);
     }
-    ui_draw_text(frame.width - font_size*0.25f, font_size*0.25f, str, theme.fg, 1, 0, str_size);
+    ui_draw_text(frame.width - font_size*0.25f, font_size*0.25f, str, theme->fg, 1, 0, str_size);
 
     ui_pop_frame();
 }
 
 void ui_draw_statusbar(void) {
     ui_add_frame(0, GetScreenHeight() - font_size*3.5f, GetScreenWidth(), font_size*3.5f);
-    ui_clear_frame(theme.mg_off);
+    ui_clear_frame(theme->mg_off);
 
     Rectangle frame = ui_get_frame();
 
@@ -214,17 +225,17 @@ void ui_draw_statusbar(void) {
     
     if (loaded) {
         if (none) {
-            ui_draw_text(f*0.5f, f*0.5f, meta.path, theme.fg, 0, 0, w-f);
+            ui_draw_text(f*0.5f, f*0.5f, meta.path, theme->fg, 0, 0, w-f);
         } else {
-            c += ui_draw_text(f*0.5f + c, f*0.5f, meta.artist, theme.fg_off, 0, 0, w - f - c);
-            c += ui_draw_text(f*0.5f + c, f*0.5f, sv(" - "), theme.fg_off, 0, 0, w - f - c);
-            c += ui_draw_text(f*0.5f + c, f*0.5f, meta.title, theme.fg, 0, 0, w - f - c);
+            c += ui_draw_text(f*0.5f + c, f*0.5f, meta.artist, theme->fg_off, 0, 0, w - f - c);
+            c += ui_draw_text(f*0.5f + c, f*0.5f, sv(" - "), theme->fg_off, 0, 0, w - f - c);
+            c += ui_draw_text(f*0.5f + c, f*0.5f, meta.title, theme->fg, 0, 0, w - f - c);
         
             size_t album_name = ui_measure_text(meta.album_name);
-            if (w - album_name > c + f) ui_draw_text(w - f*0.5f, f*0.5f, meta.album_name, theme.fg_off, 1, 0, 1e9);
+            if (w - album_name > c + f) ui_draw_text(w - f*0.5f, f*0.5f, meta.album_name, theme->fg_off, 1, 0, 1e9);
         }
     } else {
-        ui_draw_text(f*0.5f, f*0.5f, sv("drag-n-drop some music!"), theme.fg_off, 0, 0, w - f);
+        ui_draw_text(f*0.5f, f*0.5f, sv("drag-n-drop some music!"), theme->fg_off, 0, 0, w - f);
     }
 
     // PLAYER CONTROLS
@@ -237,17 +248,17 @@ void ui_draw_statusbar(void) {
     } else { seek = 0.f; length = 0.f; }
     
     c = 0;
-    c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) seek)/60, ((int) seek)%60)), theme.fg, 0, 0, 1e9);
+    c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) seek)/60, ((int) seek)%60)), theme->fg, 0, 0, 1e9);
     c += f/4.f;
-    c += ui_draw_text(f*0.5f + c, f*2.f, sv("/"), theme.fg_off, 0, 0, 1e9);
+    c += ui_draw_text(f*0.5f + c, f*2.f, sv("/"), theme->fg_off, 0, 0, 1e9);
     c += f/4.f;
-    c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) length)/60, ((int) length)%60)), theme.fg, 0, 0, 1e9);
+    c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) length)/60, ((int) length)%60)), theme->fg, 0, 0, 1e9);
     
     // BUTTONS
-    bool back = ui_draw_button(w - f*4.5f, f*2.f, backward, theme.mg_off, theme.mg, theme.fg, loaded);
-    bool pause_ = ui_draw_button(w - f*3.5f, f*2.f, music_paused() ? play : pause, theme.mg_off, theme.mg, theme.fg, loaded);
-    bool forw = ui_draw_button(w - f*2.5f, f*2.f, forward, theme.mg_off, theme.mg, theme.fg, loaded);
-    bool repeat_ = ui_draw_button(w - f*1.5f, f*2.f, music_repeat() == REPEAT_ONE ? repeat_one : repeat, theme.mg_off, theme.mg, music_repeat() ? theme.fg : theme.fg_off, loaded);
+    bool back = ui_draw_button(w - f*4.5f, f*2.f, backward, theme->mg_off, theme->mg, theme->fg, loaded);
+    bool pause_ = ui_draw_button(w - f*3.5f, f*2.f, music_paused() ? play : pause, theme->mg_off, theme->mg, theme->fg, loaded);
+    bool forw = ui_draw_button(w - f*2.5f, f*2.f, forward, theme->mg_off, theme->mg, theme->fg, loaded);
+    bool repeat_ = ui_draw_button(w - f*1.5f, f*2.f, music_repeat() == REPEAT_ONE ? repeat_one : repeat, theme->mg_off, theme->mg, music_repeat() ? theme->fg : theme->fg_off, loaded);
 
     if (back) music_playlist_backward();
     if (pause_) music_toggle_pause();
@@ -265,17 +276,17 @@ void ui_draw_statusbar(void) {
         size_t second = perc*length;
         seek_float = perc;
         
-        //ui_draw_circle(f*1.f + c + perc*(w - f*5.f - c), f*2.5f, f*0.3f, theme.fg);
+        //ui_draw_circle(f*1.f + c + perc*(w - f*5.f - c), f*2.5f, f*0.3f, theme->fg);
         String text = sv((char*) TextFormat("%d:%02d", second/60, second%60));
         size_t width = ui_measure_text(text);
-        ui_draw_rect(f*1.f + c + perc*(w - f*5.f - c) - width*0.5f - f*0.25f, f, width + f*0.5f, f, theme.bg);
-        ui_draw_text(f*1.f + c + perc*(w - f*5.f - c), f*2.f, text, theme.fg, 0.5f, 1.f, 1e9);
+        ui_draw_rect(f*1.f + c + perc*(w - f*5.f - c) - width*0.5f - f*0.25f, f, width + f*0.5f, f, theme->bg);
+        ui_draw_text(f*1.f + c + perc*(w - f*5.f - c), f*2.f, text, theme->fg, 0.5f, 1.f, 1e9);
     }
     
-    ui_draw_rect(f*1.f + c, f*2.5f - f*0.0625f, w - f*6.f - c, f*0.125f, theme.mg);
+    ui_draw_rect(f*1.f + c, f*2.5f - f*0.0625f, w - f*6.f - c, f*0.125f, theme->mg);
     if (loaded) {
-        ui_draw_rect(f*1.f + c, f*2.5f - f*0.0625f, seek_float*(w - f*6.f - c), f*0.125f, theme.fg);
-        ui_draw_circle(f*1.f + c + seek_float*(w - f*6.f - c), f*2.5f, seekbar_hovered ? f*0.3f : f*0.2f, theme.fg);
+        ui_draw_rect(f*1.f + c, f*2.5f - f*0.0625f, seek_float*(w - f*6.f - c), f*0.125f, theme->fg);
+        ui_draw_circle(f*1.f + c + seek_float*(w - f*6.f - c), f*2.5f, seekbar_hovered ? f*0.3f : f*0.2f, theme->fg);
     }
 
     if (loaded && seekbar_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) seeking = true;
@@ -322,8 +333,8 @@ void ui_scrollbar(float size, float scroll) {
     if (vp_size >= size) return;
     float scrolled = scroll / (size - vp_size);
     float knob_size = font_size*0.66f;
-    ui_draw_rect(frame.width-font_size*0.25f, 0, font_size*0.25f, frame.height, theme.bg);
-    ui_draw_rect(frame.width-font_size*0.25f, scrolled*(frame.height-knob_size), font_size*0.25f, knob_size, theme.mg_off);
+    ui_draw_rect(frame.width-font_size*0.25f, 0, font_size*0.25f, frame.height, theme->bg);
+    ui_draw_rect(frame.width-font_size*0.25f, scrolled*(frame.height-knob_size), font_size*0.25f, knob_size, theme->mg_off);
 }
 
 void ui_draw_playlist(void) {
@@ -345,7 +356,7 @@ void ui_draw_playlist(void) {
     }
     
     if (playlist->size == 0) {
-        ui_draw_text(frame.width/2, frame.height/2, sv("whoa, quite empty here..."), theme.mg_off, 0.5f, 0.5f, 1e9);
+        ui_draw_text(frame.width/2, frame.height/2, sv("whoa, quite empty here..."), theme->mg_off, 0.5f, 0.5f, 1e9);
     } else {
         float p = playlist_scroll, f = font_size, w = frame.width;
         
@@ -359,8 +370,8 @@ void ui_draw_playlist(void) {
             if (!meta.artist.size) meta.artist = sv("<none>");
             
             bool hovered = ui_mouse_in(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size) && ui_mouse_in_frame();
-            Color gray = i == (size_t) playing || hovered ? theme.fg_off : theme.mg;
-            if (hovered) ui_draw_rect(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size, theme.mg);
+            Color gray = i == (size_t) playing || hovered ? theme->fg_off : theme->mg;
+            if (hovered) ui_draw_rect(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size, theme->mg);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { music_unload(); music_load(i); }
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { music_remove_from_playlist(i); }
@@ -370,9 +381,9 @@ void ui_draw_playlist(void) {
                 ui_draw_text(f*0.5f, p + f*(0.5f + i), meta.path, gray, 0, 0, w-f);
             } else {
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv((char*) TextFormat("%d. ", i+1)), gray, 0, 0, w - f - c);
-                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.artist, theme.fg, 0, 0, w - f - c);
-                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv(" - "), theme.fg, 0, 0, w - f - c);
-                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.title, theme.fg, 0, 0, w - f - c);
+                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.artist, theme->fg, 0, 0, w - f - c);
+                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv(" - "), theme->fg, 0, 0, w - f - c);
+                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.title, theme->fg, 0, 0, w - f - c);
                 size_t album_name = ui_measure_text(meta.album_name);
                 if (frame.width - album_name > font_size + c) ui_draw_text(frame.width - font_size*0.5f, playlist_scroll + font_size*0.5f + i*font_size, meta.album_name, gray, 1, 0, album_name);
             }
@@ -411,19 +422,19 @@ void ui_draw_albums(void) {
         
         float f = font_size, w = frame.width, s = i_album_scroll;
         ui_draw_texture(f*0.5f, f*0.5f+s, album.cover_x8);
-        ui_draw_text(f*9.f, f*0.5f+s, album.name, theme.fg, 0, 0, w - f*9.5f);
-        ui_draw_text(f*9.f, f*1.5f+s, album.artists, theme.mg_off, 0, 0, w - f*9.5f);
-        ui_draw_text(f*9.f, f*2.5f+s, album.year, theme.mg_off, 0, 0, w - f*9.5f);
+        ui_draw_text(f*9.f, f*0.5f+s, album.name, theme->fg, 0, 0, w - f*9.5f);
+        ui_draw_text(f*9.f, f*1.5f+s, album.artists, theme->mg_off, 0, 0, w - f*9.5f);
+        ui_draw_text(f*9.f, f*2.5f+s, album.year, theme->mg_off, 0, 0, w - f*9.5f);
 
-        album_selected = album_selected && !ui_draw_button(w - f*1.5f, f*0.5f+s, go_back, theme.bg, theme.mg_off, theme.fg, true);
+        album_selected = album_selected && !ui_draw_button(w - f*1.5f, f*0.5f+s, go_back, theme->bg, theme->mg_off, theme->fg, true);
         album_selected = album_selected && !IsKeyPressed(KEY_ESCAPE);
         array_foreach(album.tracks, i) {
             SongMetadata meta = array_get(album.tracks, i);
             bool hovered = ui_mouse_in(0, f*9.f + f*i+s, w, f) && ui_mouse_in_frame();
-            Color gray = hovered ? theme.fg_off : theme.mg_off;
+            Color gray = hovered ? theme->fg_off : theme->mg_off;
             if (hovered) {
                 cursor = MOUSE_CURSOR_POINTING_HAND;
-                ui_draw_rect(0, f*9.f + f*i+s, w, f, theme.mg_off);
+                ui_draw_rect(0, f*9.f + f*i+s, w, f, theme->mg_off);
             }
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 while (playlist->size > 0) music_remove_from_playlist(0);
@@ -433,15 +444,15 @@ void ui_draw_albums(void) {
             } else if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) music_insert_into_playlist(meta.path);
             float c = 0;
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv((char*) TextFormat("%d. ", meta.track)), gray, 0, 0, w - c - f);
-            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.artist, theme.fg, 0, 0, w - c - f);
-            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv(" - "), theme.fg, 0, 0, w - c - f);
-            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.title, theme.fg, 0, 0, w - c - f);
+            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.artist, theme->fg, 0, 0, w - c - f);
+            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv(" - "), theme->fg, 0, 0, w - c - f);
+            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.title, theme->fg, 0, 0, w - c - f);
         }
         float size = f*9.5f + f*(album.tracks->size);
         ui_scrollable(size, &i_album_scroll);
         ui_scrollbar(size, i_album_scroll);
     } else if (albums->size == 0) {
-        ui_draw_text(frame.width/2, frame.height/2, sv("drag-n-drop a folder here"), theme.mg_off, 0.5f, 0.5f, 1e9);
+        ui_draw_text(frame.width/2, frame.height/2, sv("drag-n-drop a folder here"), theme->mg_off, 0.5f, 0.5f, 1e9);
     } else {
         i_album_scroll = 0.f;
         float r = 0, c = 0, s = album_scroll, e = 0;
@@ -457,17 +468,17 @@ void ui_draw_albums(void) {
                 album_selected = true; album_index = i;
             }
             
-            ui_draw_rect(x, y, rw, rh, hovered ? theme.mg_off : theme.bg);
+            ui_draw_rect(x, y, rw, rh, hovered ? theme->mg_off : theme->bg);
             ui_draw_texture(x + f*0.5f, y + f*0.5f, album.cover_x6);
             String name = album.name.size ? album.name : sv("<none>");
             String artists = album.artists.size ? album.artists : sv("<none>");
             String year = album.year;
-            ui_draw_text(x + f*0.5f, y + f*6.75f, name, theme.fg, 0, 0, rw - f);
+            ui_draw_text(x + f*0.5f, y + f*6.75f, name, theme->fg, 0, 0, rw - f);
             e = 0;
-            e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, artists, hovered ? theme.fg_off : theme.mg_off, 0, 0, rw - f);
+            e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, artists, hovered ? theme->fg_off : theme->mg_off, 0, 0, rw - f);
             if (year.size) {
-                e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, sv(", "), hovered ? theme.fg_off : theme.mg_off, 0, 0, rw - e - f);
-                e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, year, hovered ? theme.fg_off : theme.mg_off, 0, 0, rw - e - f);
+                e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, sv(", "), hovered ? theme->fg_off : theme->mg_off, 0, 0, rw - e - f);
+                e += ui_draw_text(x + f*0.5f + e, y + f*7.75f, year, hovered ? theme->fg_off : theme->mg_off, 0, 0, rw - e - f);
             }
             
             if (i != albums->size-1) {
@@ -579,16 +590,16 @@ void ui_draw_browse(void) {
     if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) search_focused = true;
     if (!hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) search_focused = false;
     if (search->size == 0 && !search_focused) {
-        ui_draw_text(f*0.5f, f*0.5f+s, sv("click here to search..."), theme.mg_off, 0, 0, w - f);
+        ui_draw_text(f*0.5f, f*0.5f+s, sv("click here to search..."), theme->mg_off, 0, 0, w - f);
     } else {
         float bar_size = 2;
-        float text_size = ui_draw_text(f*0.5f, f*0.5f+s, sv_from_sb(search), theme.fg, 0, 0, w - f);
+        float text_size = ui_draw_text(f*0.5f, f*0.5f+s, sv_from_sb(search), theme->fg, 0, 0, w - f);
         if (text_size < w-f-bar_size && search_focused) {
-            ui_draw_rect(f*0.5f + text_size + 1, f*0.5f+s, bar_size, f, theme.fg_off);
+            ui_draw_rect(f*0.5f + text_size + 1, f*0.5f+s, bar_size, f, theme->fg_off);
         }
     }
 
-    if (albums->size == 0) ui_draw_text(frame.width/2, frame.height/2, sv("drag-n-drop a folder here"), theme.mg_off, 0.5f, 0.5f, 1e9);
+    if (albums->size == 0) ui_draw_text(frame.width/2, frame.height/2, sv("drag-n-drop a folder here"), theme->mg_off, 0.5f, 0.5f, 1e9);
     
     bool first_album = true, first_song = true;
     
@@ -597,13 +608,13 @@ void ui_draw_browse(void) {
         Album album = array_get(albums, i);
         if (search->size && !ui_match_album(album, sv_from_sb(search))) continue;
         bool hovered = ui_mouse_in(0, f*2.f + f*r + s, w, f) && ui_mouse_in_frame();
-        Color gray = hovered ? theme.fg_off : theme.mg_off;
-        if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme.mg_off);
+        Color gray = hovered ? theme->fg_off : theme->mg_off;
+        if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme->mg_off);
         if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
         float c = 0;
-        c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.artists, theme.fg, 0, 0, w-f-c);
+        c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.artists, theme->fg, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, sv(" - "), gray, 0, 0, w-f-c);
-        c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.name, theme.fg, 0, 0, w-f-c);
+        c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.name, theme->fg, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, sv(" ("), gray, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.year, gray, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, sv(")"), gray, 0, 0, w-f-c);
@@ -625,21 +636,21 @@ void ui_draw_browse(void) {
             
             if (search->size && !ui_match_song(meta, sv_from_sb(search))) continue;
             bool hovered = ui_mouse_in(0, f*2.f + f*r + s, w, f) && ui_mouse_in_frame();
-            Color gray = hovered ? theme.fg_off : theme.mg_off;
-            if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme.mg_off);
+            Color gray = hovered ? theme->fg_off : theme->mg_off;
+            if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme->mg_off);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
             c = 0;
             c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, sv((char*) TextFormat("%d. ", meta.track)), gray, 0, 0, w-f-c);
-            c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.artist, theme.fg, 0, 0, w-f*2.f-c);
+            c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.artist, theme->fg, 0, 0, w-f*2.f-c);
             c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, sv(" - "), gray, 0, 0, w-f*2.f-c);
-            c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.title, theme.fg, 0, 0, w-f*2.f-c);
+            c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.title, theme->fg, 0, 0, w-f*2.f-c);
             if ((first_song && search->size && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ENTER)) || (hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
                 search_focused = false;
                 music_insert_into_playlist(meta.path);
             }
             if (first_song && search->size && search_focused) {
                 first_song = false;
-                ui_draw_text(w - f*0.5f, f*2.f + f*r + s, sv("Shift + Enter"), theme.mg_off, 1, 0, 1e9);
+                ui_draw_text(w - f*0.5f, f*2.f + f*r + s, sv("Shift + Enter"), theme->mg_off, 1, 0, 1e9);
             }
             
             r++;
@@ -652,12 +663,87 @@ void ui_draw_browse(void) {
 
 float about_scroll = 0.0f;
 
+Theme custom_theme = {
+    {0x18, 0x18, 0x18, 0xFF},
+    {0x50, 0x50, 0x50, 0xFF},
+    {0x60, 0x60, 0x60, 0xFF},
+    {0xD0, 0xD0, 0xD0, 0xFF},
+    {0xFF, 0xFF, 0xFF, 0xFF},
+    {0xA0, 0xA0, 0xFF, 0xFF},
+};
+
+int theme_selected = 0;
+
+void ui_theme_select(int t) {
+    if (t == 0) theme = &dark_theme;
+    if (t == 1) theme = &light_theme;
+    if (t == 2) theme = &custom_theme;
+}
+
+bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, int value) {
+    float text_width = ui_measure_text(str);
+    bool hovered = ui_mouse_in(x, y, text_width + font_size*0.5f, font_size) && ui_mouse_in_frame();
+    bool sel = *select == value;
+    ui_draw_rect(x, y, text_width + font_size*0.5f, font_size, sel ? fg : bg);
+    ui_draw_text(x + font_size*0.25f, y, str, sel ? bg : fg, 0, 0, text_width);
+    if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
+    if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) *select = value;
+    return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
+
 void ui_draw_about(void) {
     Rectangle frame = ui_get_frame();
 
-    String s = sv_from_bytes(_ABOUT_TXT, _ABOUT_TXT_LENGTH);
-    
     float f = font_size, w = frame.width, sc = about_scroll;
+
+    float c = 0;
+    c += ui_draw_text(0.5f*f + c, 0.5f*f, sv("Select theme:"), theme->fg, 0, 0, 1e9);
+    c += f*0.25f;
+    if (ui_select(0.5f*f + c, 0.5f*f, sv("dark"), theme->mg_off, theme->fg, &theme_selected, 0)) ui_theme_select(theme_selected);
+    c += f*0.5f + ui_measure_text(sv("dark"));
+    c += f*0.25f;
+    if (ui_select(0.5*f + c, 0.5f*f, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
+    c += f*0.5f + ui_measure_text(sv("light"));
+    c += f*0.25f;
+    //if (ui_select(0.5*f + c, 0.5f*f, sv("custom"), theme->mg_off, theme->fg, &theme_selected, 2)) ui_theme_select(theme_selected);
+    c += f*0.5f + ui_measure_text(sv("custom"));
+
+    float y = 2*f;
+    if (theme_selected == 2) {
+        for (size_t i = 0; i < 6; i++) {
+            Color* col = &custom_theme.bg;
+            if (i == 1) col = &custom_theme.mg_off;
+            if (i == 2) col = &custom_theme.mg;
+            if (i == 3) col = &custom_theme.fg_off;
+            if (i == 4) col = &custom_theme.fg;
+            if (i == 5) col = &custom_theme.link;
+            float c = 0.5f*f;
+            String str = sv((char*) TextFormat("%02X", col->r));
+            float tw = ui_measure_text(str);
+            ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
+            c += f*0.25f;
+            ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
+            c += tw + f*0.5f;
+            // str = sv((char*) TextFormat("%02X", col->g));
+            // tw = ui_measure_text(str);
+            // ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
+            // c += f*0.25f;
+            // ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
+            // c += tw + f*0.5f;
+            // str = sv((char*) TextFormat("%02X", col->b));
+            // tw = ui_measure_text(str);
+            // ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
+            // c += f*0.25f;
+            // ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
+            // c += tw + f*0.5f;
+            y += 1.25f*f;
+        }
+    }
+    
+    float start_text = theme_selected == 2 ? y : f*1.5f;
+    
+    String s = sv_from_bytes(_ABOUT_TXT, _ABOUT_TXT_LENGTH);
+
     size_t n = 0;
     while (s.size) {
         String line = sv_split(&s, sv("\n"));
@@ -673,30 +759,30 @@ void ui_draw_about(void) {
             }
         }
         if (found) {
-            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + sc, sv_from_bytes(line.bytes, start_i), theme.fg, 0, 0, w-f-c);
+            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + start_text + sc, sv_from_bytes(line.bytes, start_i), theme->fg, 0, 0, w-f-c);
             float start_c = c;
             String l = sv_from_bytes(line.bytes + start_i, i - start_i);
-            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + sc, l, theme.link, 0, 0, w-f-c);
-            bool hovered = ui_mouse_in_frame() && ui_mouse_in(f*0.5f + start_c, f*0.5f + n*f + sc, c - start_c, f);
-            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + sc, sv_from_bytes(line.bytes + i, line.size - i), theme.fg, 0, 0, w-f-c);
+            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + start_text + sc, l, theme->link, 0, 0, w-f-c);
+            bool hovered = ui_mouse_in_frame() && ui_mouse_in(f*0.5f + start_c, f*0.5f + n*f + start_text + sc, c - start_c, f);
+            c += ui_draw_text(f*0.5f + c, f*0.5f + n*f + start_text + sc, sv_from_bytes(line.bytes + i, line.size - i), theme->fg, 0, 0, w-f-c);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 char* c = sv_to_cstr(l);
                 OpenURL(c);
                 free(c);
             }
-        } else ui_draw_text(f*0.5f + c, f*0.5f + n*f + sc, line, theme.fg, 0, 0, w-f-c);
+        } else ui_draw_text(f*0.5f + c, f*0.5f + n*f + start_text + sc, line, theme->fg, 0, 0, w-f-c);
         
         n++;
     }
     n++;
-    ui_scrollable(n*f, &about_scroll);
-    ui_scrollbar(n*f, about_scroll);
+    ui_scrollable(n*f + start_text, &about_scroll);
+    ui_scrollbar(n*f + start_text, about_scroll);
 }
 
 void ui_draw_main(void) {
     ui_add_frame(0, font_size*1.5f, GetScreenWidth(), GetScreenHeight() - font_size*5.f);
-    ui_clear_frame(theme.bg);
+    ui_clear_frame(theme->bg);
 
     Rectangle frame = ui_get_frame();
 
@@ -704,7 +790,7 @@ void ui_draw_main(void) {
     else if (current_tab == TAB_ALBUMS) ui_draw_albums();
     else if (current_tab == TAB_BROWSE) ui_draw_browse();
     else if (current_tab == TAB_ABOUT) ui_draw_about();
-    else ui_draw_text(frame.width/2, frame.height/2, sv(":)"), theme.fg, 0.5f, 0.5f, 1e9);
+    else ui_draw_text(frame.width/2, frame.height/2, sv(":)"), theme->fg, 0.5f, 0.5f, 1e9);
     
     ui_pop_frame();
 }
