@@ -53,15 +53,15 @@ SongMetadata music_get_metadata(String path) {
     else if (sv_compare(im.mime_type, sv("image/png"))) img = LoadImageFromMemory(".png", (unsigned char*) im.data.bytes, im.data.size);
     Image img_copy = ImageCopy(img);
     ImageResize(&img_copy, font_size*8.f, font_size*8.f);
-    Texture t2 = LoadTextureFromImage(img_copy);
+    Texture t3 = LoadTextureFromImage(img_copy);
     ImageResize(&img_copy, font_size*6.f, font_size*6.f);
-    Texture t = LoadTextureFromImage(img_copy);
+    Texture t2 = LoadTextureFromImage(img_copy);
     UnloadImage(img_copy);
     SongMetadata meta = {
         path, tags_get_artist(&main_arena, path), tags_get_title(&main_arena, path),
         tags_get_album_artist(&main_arena, path), tags_get_album(&main_arena, path),
         tags_get_year(&main_arena, path),
-        img, t, t2,
+        img, t2, t3,
         tags_get_track_number(&main_arena, path),
     };
     *array_push(cache) = meta;
@@ -140,8 +140,6 @@ void music_seek(float seek) {
 
 void music_set_repeat(RepeatMode r) {
     repeat_mode = r;
-    if (playing < 0) return;
-    current.looping = r == REPEAT_ONE;
 }
 
 RepeatMode music_repeat(void) { return repeat_mode; }
@@ -153,7 +151,7 @@ void music_load(int playlist_index) {
     char* cstr = sv_to_cstr(array_get(playlist, playlist_index));
     current = LoadMusicStream(cstr);
     SetMusicVolume(current, volume);
-    current.looping = repeat_mode == REPEAT_ONE;
+    current.looping = false;
     PlayMusicStream(current);
     free(cstr);
     playing = playlist_index;
@@ -234,15 +232,21 @@ void music_deinit(void) {
 void music_update(void) {
     if (playing >= 0) UpdateMusicStream(current);
     if (playing >= 0 && !paused && !IsMusicStreamPlaying(current)) {
+        size_t old_playing = playing;
         music_unload();
+        playing = old_playing;
+        printf("EOF, repeat mode: ");
         if (repeat_mode == REPEAT_PLAYLIST) {
-            size_t new_playing = (playing+1) % playlist->size;
-            playing = new_playing;
-            music_load(playing);
+            printf("playlist, old playing: %d, ", playing);
+            playing = (playing+1) % (int) playlist->size;
+            printf("playing: %d\n", playing);
+        } else if (repeat_mode == REPEAT_NONE) {
+            printf("none, old playing: %d, ", playing);
+            if (playing < (int)playlist->size-1) playing += 1;
+            printf("playing: %d\n", playing);
         } else {
-            if (playing < 0 || (size_t) playing >= playlist->size-1) return;
-            size_t new_playing = ++playing;
-            music_load(new_playing);
+            printf("one, playing: %d\n", playing);
         }
+        music_load(playing);
     }
 }
