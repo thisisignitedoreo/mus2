@@ -49,7 +49,7 @@ SongMetadata music_get_metadata(String path) {
     // No cached meta found, construct one from scratch
     TagImage im = tags_get_cover_art(&main_arena, path);
     Image img = {0};
-    if (sv_compare(im.mime_type, sv("image/jpeg"))) img = LoadImageFromMemory(".jpg", (unsigned char*) im.data.bytes, im.data.size);
+    if (sv_compare(im.mime_type, sv("image/jpeg")) || sv_compare(im.mime_type, sv("image/jpg"))) img = LoadImageFromMemory(".jpg", (unsigned char*) im.data.bytes, im.data.size);
     else if (sv_compare(im.mime_type, sv("image/png"))) img = LoadImageFromMemory(".png", (unsigned char*) im.data.bytes, im.data.size);
     Image img_copy = ImageCopy(img);
     ImageResize(&img_copy, font_size*8.f, font_size*8.f);
