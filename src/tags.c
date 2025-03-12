@@ -233,7 +233,7 @@ String tags_id3v2_get_frame(Arena* arena, String path, String frame) {
 
     (void)footer;
     
-    while (ftell(f) < size) {
+    while (ftell(f) < (long) size) {
         char id[4];
         fread(id, 4, 1, f);
         if (memcmp(id, "\0\0\0\0", 4) == 0) break;
