@@ -7,8 +7,10 @@ if test ! -f "src/assets.h"; then
     python bundle.py
 fi
 
-echo "Building libstrap..."
-ext/strap/build.sh && cd .
+if test ! -f "ext/strap/libstrap.a"; then
+    echo "Building libstrap..."
+    ext/strap/build.sh && cd .
+fi
 
 echo "Building mus2..."
 if [[ "t${1}" == "twindows" ]]; then

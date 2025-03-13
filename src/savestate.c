@@ -81,7 +81,7 @@ void savestate_load(void) {
 
     int playlist_size = ss_read_int(f);
     for (int i = 0; i < playlist_size; i++) {
-        *array_push(playlist) = ss_read_str(f);
+        music_insert_into_playlist(ss_read_str(f));
     }
     playing = ss_read_int(f);
     if (playing >= 0) music_load(playing);

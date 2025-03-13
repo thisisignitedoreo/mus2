@@ -64,6 +64,15 @@ int main(void) {
             if (IsKeyPressed(KEY_THREE)) { current_tab = TAB_BROWSE; search_focused = true; GetCharPressed(); }
             if (IsKeyPressed(KEY_FOUR)) current_tab = TAB_ABOUT;
         }
+
+        if (deferred_cover_array->size > 0) {
+            size_t i = 3;
+            while (deferred_cover_array->size > 0 && i > 0) {
+                size_t idx = array_pop(deferred_cover_array);
+                music_load_coverart(idx);
+                i--;
+            }
+        }
         
         music_update();
         
@@ -74,10 +83,10 @@ int main(void) {
         if (debug) {
             size_t bytes = 0;
             for (Region* r = main_arena.begin; r; r = r->next) bytes += r->cursor;
-            size_t width = ui_measure_text(sv((char*) TextFormat("memory usage: %db", bytes)));
+            size_t width = ui_measure_text(sv((char*) TextFormat("memory usage: %db, %d FPS", bytes, GetFPS())));
             ui_draw_rect(font_size*0.5f, font_size*0.5f, width + font_size, font_size*3.f, theme->mg);
             ui_draw_text(font_size, font_size, sv((char*) TextFormat("%dx%d, p: %dx%d", GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY())), theme->fg, 0, 0, 1e9);
-            ui_draw_text(font_size, font_size*2.f, sv((char*) TextFormat("memory usage: %db", bytes)), theme->fg, 0, 0, 1e9);
+            ui_draw_text(font_size, font_size*2.f, sv((char*) TextFormat("memory usage: %db, %d FPS", bytes, GetFPS())), theme->fg, 0, 0, 1e9);
         }
         
         EndDrawing();

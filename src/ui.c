@@ -358,10 +358,14 @@ void ui_draw_playlist(void) {
     if (playlist->size == 0) {
         ui_draw_text(frame.width/2, frame.height/2, sv("whoa, quite empty here..."), theme->mg_off, 0.5f, 0.5f, 1e9);
     } else {
-        float p = playlist_scroll, f = font_size, w = frame.width;
+        float p = playlist_scroll, f = font_size, w = frame.width, h = frame.height;
+        String old_album_name = {0};
+        float h1 = playlist->size * f + f;
+        if (playing >= 0) h1 += f*6.5f;
         
-        ui_scrollable(playlist->size * f + f, &playlist_scroll);
         array_foreach(playlist, i) {
+            if (i*f + 0.5f*f + f + playlist_scroll < 0) continue;
+            if (i*f + 0.5f*f + playlist_scroll > w) break;
             String path = array_get(playlist, i);
             SongMetadata meta = music_get_metadata(path);
             bool none = meta.album_name.size == 0 && meta.title.size == 0 && meta.artist.size == 0;
@@ -379,16 +383,28 @@ void ui_draw_playlist(void) {
 
             if (none) {
                 ui_draw_text(f*0.5f, p + f*(0.5f + i), meta.path, gray, 0, 0, w-f);
+                old_album_name = sv_from_bytes(NULL, 0);
             } else {
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv((char*) TextFormat("%d. ", i+1)), gray, 0, 0, w - f - c);
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.artist, theme->fg, 0, 0, w - f - c);
-                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv(" - "), theme->fg, 0, 0, w - f - c);
+                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv(" - "), gray, 0, 0, w - f - c);
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.title, theme->fg, 0, 0, w - f - c);
-                size_t album_name = ui_measure_text(meta.album_name);
-                if (frame.width - album_name > font_size + c) ui_draw_text(frame.width - font_size*0.5f, playlist_scroll + font_size*0.5f + i*font_size, meta.album_name, gray, 1, 0, album_name);
+                String al = sv((char*) TextFormat(SV_FMT" ("SV_FMT")", SvFmt(meta.album_name), SvFmt(meta.year)));
+                size_t als = ui_measure_text(al);
+                if (w - als > f + c && !sv_compare(al, old_album_name) && i*f + 0.5f*f + playlist_scroll >= 0) {
+                    ui_draw_text(w - f*0.5f, playlist_scroll + f*0.5f + i*f, al, gray, 1, 0, als);
+                    old_album_name = al;
+                }
             }
         }
-        ui_scrollbar(playlist->size * f + f, playlist_scroll);
+
+        if (playing >= 0) {
+            SongMetadata meta = music_get_playing_metadata();
+            ui_draw_texture(w - f*6.5f, h - f*6.5f, meta.cover_art_6x);
+        }
+        
+        ui_scrollable(h1, &playlist_scroll);
+        ui_scrollbar(h1, playlist_scroll);
     }
     
     ui_end_scissor_mode();
@@ -445,7 +461,7 @@ void ui_draw_albums(void) {
             float c = 0;
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv((char*) TextFormat("%d. ", meta.track)), gray, 0, 0, w - c - f);
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.artist, theme->fg, 0, 0, w - c - f);
-            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv(" - "), theme->fg, 0, 0, w - c - f);
+            c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv(" - "), gray, 0, 0, w - c - f);
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.title, theme->fg, 0, 0, w - c - f);
         }
         float size = f*9.5f + f*(album.tracks->size);
@@ -607,6 +623,11 @@ void ui_draw_browse(void) {
     array_foreach(albums, i) {
         Album album = array_get(albums, i);
         if (search->size && !ui_match_album(album, sv_from_sb(search))) continue;
+        if (f*2.f + f*(r+1+album.tracks->size)+s < 0) {
+            r += 1 + album.tracks->size;
+            continue;
+        }
+        if (f*2.f + f*r+s > frame.height) break;
         bool hovered = ui_mouse_in(0, f*2.f + f*r + s, w, f) && ui_mouse_in_frame();
         Color gray = hovered ? theme->fg_off : theme->mg_off;
         if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme->mg_off);
@@ -656,6 +677,18 @@ void ui_draw_browse(void) {
             r++;
         }
     }
+    r = 0;
+    array_foreach(albums, i) {
+        Album album = array_get(albums, i);
+        if (search->size && !ui_match_album(album, sv_from_sb(search))) continue;
+        r++;
+        SongCache* tracklist = album.tracks;
+        array_foreach(tracklist, j) {
+            SongMetadata meta = array_get(tracklist, j);
+            if (search->size && !ui_match_song(meta, sv_from_sb(search))) continue;
+            r++;
+        }
+    }
     r++;
     ui_scrollable(f*2.5f + r*f, &browse_scroll);
     ui_scrollbar(f*2.5f + r*f, browse_scroll);
@@ -663,21 +696,11 @@ void ui_draw_browse(void) {
 
 float about_scroll = 0.0f;
 
-Theme custom_theme = {
-    {0x18, 0x18, 0x18, 0xFF},
-    {0x50, 0x50, 0x50, 0xFF},
-    {0x60, 0x60, 0x60, 0xFF},
-    {0xD0, 0xD0, 0xD0, 0xFF},
-    {0xFF, 0xFF, 0xFF, 0xFF},
-    {0xA0, 0xA0, 0xFF, 0xFF},
-};
-
 int theme_selected = 0;
 
 void ui_theme_select(int t) {
     if (t == 0) theme = &dark_theme;
     if (t == 1) theme = &light_theme;
-    if (t == 2) theme = &custom_theme;
 }
 
 bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, int value) {
@@ -697,49 +720,15 @@ void ui_draw_about(void) {
     float f = font_size, w = frame.width, sc = about_scroll;
 
     float c = 0;
-    c += ui_draw_text(0.5f*f + c, 0.5f*f, sv("Select theme:"), theme->fg, 0, 0, 1e9);
+    c += ui_draw_text(0.5f*f + c, 0.5f*f +sc, sv("Select theme:"), theme->fg, 0, 0, 1e9);
     c += f*0.25f;
-    if (ui_select(0.5f*f + c, 0.5f*f, sv("dark"), theme->mg_off, theme->fg, &theme_selected, 0)) ui_theme_select(theme_selected);
+    if (ui_select(0.5f*f + c, 0.5f*f +sc, sv("dark"), theme->mg_off, theme->fg, &theme_selected, 0)) ui_theme_select(theme_selected);
     c += f*0.5f + ui_measure_text(sv("dark"));
     c += f*0.25f;
-    if (ui_select(0.5*f + c, 0.5f*f, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
+    if (ui_select(0.5*f + c, 0.5f*f +sc, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
     c += f*0.5f + ui_measure_text(sv("light"));
-    c += f*0.25f;
-    //if (ui_select(0.5*f + c, 0.5f*f, sv("custom"), theme->mg_off, theme->fg, &theme_selected, 2)) ui_theme_select(theme_selected);
-    c += f*0.5f + ui_measure_text(sv("custom"));
 
-    float y = 2*f;
-    if (theme_selected == 2) {
-        for (size_t i = 0; i < 6; i++) {
-            Color* col = &custom_theme.bg;
-            if (i == 1) col = &custom_theme.mg_off;
-            if (i == 2) col = &custom_theme.mg;
-            if (i == 3) col = &custom_theme.fg_off;
-            if (i == 4) col = &custom_theme.fg;
-            if (i == 5) col = &custom_theme.link;
-            float c = 0.5f*f;
-            String str = sv((char*) TextFormat("%02X", col->r));
-            float tw = ui_measure_text(str);
-            ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
-            c += f*0.25f;
-            ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
-            c += tw + f*0.5f;
-            // str = sv((char*) TextFormat("%02X", col->g));
-            // tw = ui_measure_text(str);
-            // ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
-            // c += f*0.25f;
-            // ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
-            // c += tw + f*0.5f;
-            // str = sv((char*) TextFormat("%02X", col->b));
-            // tw = ui_measure_text(str);
-            // ui_draw_rect(c, y, tw + f*0.5f, f, theme->mg_off);
-            // c += f*0.25f;
-            // ui_draw_text(c, y, str, theme->fg, 0, 0, tw);
-            // c += tw + f*0.5f;
-            y += 1.25f*f;
-        }
-    }
-    
+    float y = 1.5f*f;
     float start_text = theme_selected == 2 ? y : f*1.5f;
     
     String s = sv_from_bytes(_ABOUT_TXT, _ABOUT_TXT_LENGTH);
@@ -747,6 +736,10 @@ void ui_draw_about(void) {
     size_t n = 0;
     while (s.size) {
         String line = sv_split(&s, sv("\n"));
+        if (sv_endswith(line, sv("\r"))) line.size -= 1;
+        if (sv_endswith(line, sv("\n"))) line.size -= 1;
+        if (sv_endswith(line, sv("\r"))) line.size -= 1;
+        if (sv_endswith(line, sv("\n"))) line.size -= 1;
         float c = 0;
         bool found = false;
         size_t start_i = 0, i = 0;

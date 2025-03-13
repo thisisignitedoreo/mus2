@@ -40,14 +40,12 @@ define_array_struct(Albums, Album)
 
 Albums* albums;
 
-SongMetadata music_get_metadata(String path) {
-    // First, check the cache
-    array_foreach(cache, i) {
-        SongMetadata meta = array_get(cache, i);
-        if (sv_compare(path, meta.path)) return meta;
-    }
-    // No cached meta found, construct one from scratch
-    TagImage im = tags_get_cover_art(&main_arena, path);
+U32Array* deferred_cover_array;
+
+void music_load_coverart(size_t cache_index) {
+    SetTraceLogLevel(LOG_NONE);
+    SongMetadata meta = array_get(cache, cache_index);
+    TagImage im = tags_get_cover_art(&main_arena, meta.path);
     Image img = {0};
     if (sv_compare(im.mime_type, sv("image/jpeg")) || sv_compare(im.mime_type, sv("image/jpg"))) img = LoadImageFromMemory(".jpg", (unsigned char*) im.data.bytes, im.data.size);
     else if (sv_compare(im.mime_type, sv("image/png"))) img = LoadImageFromMemory(".png", (unsigned char*) im.data.bytes, im.data.size);
@@ -57,11 +55,43 @@ SongMetadata music_get_metadata(String path) {
     ImageResize(&img_copy, font_size*6.f, font_size*6.f);
     Texture t2 = LoadTextureFromImage(img_copy);
     UnloadImage(img_copy);
+    meta.cover_art = img;
+    meta.cover_art_6x = t2;
+    meta.cover_art_8x = t3;
+    *array_set(cache, cache_index) = meta;
+    array_foreach(albums, i) {
+        Album album = array_get(albums, i);
+        SongCache* tracklist = album.tracks;
+        array_foreach(tracklist, j) {
+            SongMetadata m = array_get(tracklist, j);
+            if (!sv_compare(m.path, meta.path)) continue;
+            if (album.cover.width != 0) break;
+            if (sv_compare(m.path, meta.path)) {
+                album.cover = img;
+                album.cover_x6 = t2;
+                album.cover_x8 = t3;
+                *array_set(albums, i) = album;
+                break;
+            }
+        }
+    }
+    SetTraceLogLevel(LOG_INFO);
+}
+
+SongMetadata music_get_metadata(String path) {
+    // First, check the cache
+    array_foreach(cache, i) {
+        SongMetadata meta = array_get(cache, i);
+        if (sv_compare(path, meta.path)) return meta;
+    }
+    // No cached meta found, construct one from scratch
+    // Defer cover loading to the next frame
+    *array_push(deferred_cover_array) = cache->size;
     SongMetadata meta = {
         path, tags_get_artist(&main_arena, path), tags_get_title(&main_arena, path),
         tags_get_album_artist(&main_arena, path), tags_get_album(&main_arena, path),
         tags_get_year(&main_arena, path),
-        img, t2, t3,
+        {0}, {0}, {0},
         tags_get_track_number(&main_arena, path),
     };
     *array_push(cache) = meta;
@@ -72,7 +102,7 @@ void music_scan_file(String path) {
     SongMetadata meta = music_get_metadata(path);
     array_foreach(albums, i) {
         Album album = array_get(albums, i);
-        if (sv_compare(album.name, meta.album_name)) {
+        if (sv_compare(album.name, meta.album_name) && sv_compare(album.artists, meta.album_artist)) {
             *array_push(array_set(albums, i)->tracks) = meta;
             return;
         }
@@ -204,6 +234,7 @@ void music_init(void) {
     playlist = array_new(StringArray, &main_arena);
     cache = array_new(SongCache, &main_arena);
     albums = array_new(Albums, &main_arena);
+    deferred_cover_array = array_new(U32Array, &main_arena);
 }
 
 void music_playlist_backward(void) {
@@ -243,10 +274,11 @@ void music_update(void) {
         } else if (repeat_mode == REPEAT_NONE) {
             printf("none, old playing: %d, ", playing);
             if (playing < (int)playlist->size-1) playing += 1;
+            else playing = -1;
             printf("playing: %d\n", playing);
         } else {
             printf("one, playing: %d\n", playing);
         }
-        music_load(playing);
+        if (playing >= 0) music_load(playing);
     }
 }
