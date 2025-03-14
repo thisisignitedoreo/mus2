@@ -61,6 +61,9 @@ void ui_add_frame(float x, float y, float w, float h) {
         *array_push(ds) = (Rectangle) { r.x + x, r.y + y, w, h };
     }
 }
+void ui_add_frame_abs(float x, float y, float w, float h) {
+    *array_push(ds) = (Rectangle) { x, y, w, h };
+}
 
 void ui_pop_frame(void) {
     (void)array_pop(ds);
@@ -98,7 +101,7 @@ float ui_draw_text(float x, float y, String string, Color color, float ax, float
     if (rx < frame.x) rx = frame.x;
     if (ry < frame.y) ry = frame.y;
     BeginScissorMode(rx, ry, w, h);
-    DrawTextEx(font, cstr, (Vector2) {frame.x + x - ax*width, frame.y + y - ay*font_size}, font_size, 0, color);
+    DrawTextEx(font, cstr, (Vector2) {(int) (frame.x + x - ax*width), (int) (frame.y + y - ay*font_size)}, font_size, 0, color);
     EndScissorMode();
     if (scissor_mode) BeginScissorMode(scissor_mode_rect.x, scissor_mode_rect.y, scissor_mode_rect.width, scissor_mode_rect.height);
 
@@ -452,12 +455,14 @@ void ui_draw_albums(void) {
                 cursor = MOUSE_CURSOR_POINTING_HAND;
                 ui_draw_rect(0, f*9.f + f*i+s, w, f, theme->mg_off);
             }
+
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 while (playlist->size > 0) music_remove_from_playlist(0);
                 array_foreach(album.tracks, j) { music_insert_into_playlist(array_get(album.tracks, j).path); }
                 music_unload();
                 music_load(i);
             } else if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) music_insert_into_playlist(meta.path);
+            else if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) array_foreach(album.tracks, j) { music_insert_into_playlist(array_get(album.tracks, j).path); }
             float c = 0;
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, sv((char*) TextFormat("%d. ", meta.track)), gray, 0, 0, w - c - f);
             c += ui_draw_text(f*0.5f + c, f*9.f + f*i+s, meta.artist, theme->fg, 0, 0, w - c - f);
