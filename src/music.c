@@ -218,7 +218,8 @@ void music_unload(void) {
 }
 
 void music_remove_from_playlist(size_t index) {
-    if ((size_t) playing == index) { music_unload(); playing = -1; }
+    if (playing == (int) index) music_unload();
+    if (playing > (int) index) playing--;
     array_remove(playlist, index);
 }
 
