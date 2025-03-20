@@ -86,7 +86,7 @@ SongMetadata music_get_metadata(String path) {
     }
     // No cached meta found, construct one from scratch
     // Defer cover loading to the next frame
-    *array_push(deferred_cover_array) = cache->size;
+    *array_push(deferred_cover_array) = (size_t) cache->size;
     SongMetadata meta = {
         path, tags_get_artist(&main_arena, path), tags_get_title(&main_arena, path),
         tags_get_album_artist(&main_arena, path), tags_get_album(&main_arena, path),

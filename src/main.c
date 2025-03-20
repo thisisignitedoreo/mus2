@@ -9,8 +9,6 @@
 #include "stringview.h"
 #include "array.h"
 #include "fileio.h"
-#include "json_write.h"
-#include "json_read.h"
 
 Arena main_arena;
 
@@ -66,9 +64,12 @@ int main(void) {
         }
 
         if (deferred_cover_array->size > 0) {
-            size_t i = 3;
+            size_t i = 1; // setting this to 3 breaks everyting.
+            // like, everything.
+            // TODO: fix that, idc for now.
             while (deferred_cover_array->size > 0 && i > 0) {
-                size_t idx = array_pop(deferred_cover_array);
+                //for (size_t i = 0; i < deferred_cover_array->size; i++) printf("%u\n", array_get(deferred_cover_array, i));
+                uint32_t idx = array_pop(deferred_cover_array);
                 music_load_coverart(idx);
                 i--;
             }
