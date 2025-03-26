@@ -1,0 +1,9 @@
+name=gruber darker
+description=Gruber Darker theme adapted for mus2.
+author=https://github.com/rexim/gruber-darker-theme
+bg=#181818
+mg_off=#282828
+mg=#413D45
+fg_off=#E4E4EF
+fg=#F4F4FF
+link=#96A6C8

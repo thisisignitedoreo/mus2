@@ -102,6 +102,9 @@ void music_scan_file(String path) {
     SongMetadata meta = music_get_metadata(path);
     array_foreach(albums, i) {
         Album album = array_get(albums, i);
+        for (size_t j = 0; j < album.tracks->size; j++) {
+            if (sv_compare(array_get(album.tracks, j).path, meta.path)) return;
+        }
         if (sv_compare(album.name, meta.album_name) && sv_compare(album.artists, meta.album_artist)) {
             *array_push(array_set(albums, i)->tracks) = meta;
             return;
@@ -131,6 +134,18 @@ void music_scan_folder(String path) {
         if (dir_exists(p)) { music_scan_folder(p); continue; }
         if (file_exists(p) && (sv_endswith(file, sv(".flac")) || sv_endswith(file, sv(".mp3")))) music_scan_file(p);
     }
+}
+
+bool music_compare_alphabetically(String a, String b) {
+    size_t a_offset = 0, b_offset = 0;
+    while (a_offset < a.size && b_offset < b.size) {
+        int a_size = 0, a_codepoint = GetCodepointNext(a.bytes + a_offset, &a_size);
+        int b_size = 0, b_codepoint = GetCodepointNext(b.bytes + b_offset, &b_size);
+        if (a_codepoint > b_codepoint) return true;
+        a_offset += a_size;
+        b_offset += b_size;
+    }
+    return false;
 }
 
 void music_sort_albums(void) {

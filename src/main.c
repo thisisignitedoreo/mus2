@@ -21,6 +21,20 @@ float clamp(float x, float a, float b) {
 float font_size;
 
 #include "assets.h"
+#include "win32.h"
+
+#ifdef _WIN32
+char* Utf8Conv(char *path) {
+    static char shortPath[MAX_PATH];
+    wchar_t wPath[MAX_PATH];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wPath, MAX_PATH);
+    WideCharToMultiByte(CP_ACP, 0, wPath, -1, shortPath, MAX_PATH, NULL, NULL);
+    return shortPath;
+}
+#define windows_path_convert(x) Utf8Conv(x)
+#else
+#define windows_path_convert(x) x
+#endif
 
 #include "tags.c"
 #include "music.c"
@@ -36,13 +50,14 @@ int main(void) {
     
     InitWindow(600, 400, "mus2");
 
-    SetWindowMinSize(250, 200);
+    SetWindowMinSize(400, 300);
     SetExitKey(0);
     
     ui_load();
 
     InitAudioDevice();
     music_init();
+    
     savestate_load();
 
     SetTargetFPS(60);
@@ -59,17 +74,20 @@ int main(void) {
         
             if (IsKeyPressed(KEY_ONE)) current_tab = TAB_PLAYLIST;
             if (IsKeyPressed(KEY_TWO)) current_tab = TAB_ALBUMS;
-            if (IsKeyPressed(KEY_THREE)) { current_tab = TAB_BROWSE; search_focused = true; GetCharPressed(); }
+            if (IsKeyPressed(KEY_THREE)) current_tab = TAB_BROWSE;
             if (IsKeyPressed(KEY_FOUR)) current_tab = TAB_ABOUT;
+            
+            if (IsKeyPressed(KEY_THREE)) {
+                search_focused = true; GetCharPressed();
+            }
         }
 
         if (deferred_cover_array->size > 0) {
-            size_t i = 1; // setting this to 3 breaks everyting.
-            // like, everything.
-            // TODO: fix that, idc for now.
+            size_t i = 3;
             while (deferred_cover_array->size > 0 && i > 0) {
                 //for (size_t i = 0; i < deferred_cover_array->size; i++) printf("%u\n", array_get(deferred_cover_array, i));
-                uint32_t idx = array_pop(deferred_cover_array);
+                uint32_t idx = array_get(deferred_cover_array, 0);
+                array_remove(deferred_cover_array, 0);
                 music_load_coverart(idx);
                 i--;
             }
@@ -94,6 +112,7 @@ int main(void) {
     }
 
     savestate_save();
+    
     music_deinit();
     CloseAudioDevice();
     

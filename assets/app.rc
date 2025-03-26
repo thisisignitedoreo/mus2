@@ -1,0 +1,24 @@
+0 ICON "icon.ico"
+1 VERSIONINFO
+FILEVERSION     0,4,0,0
+PRODUCTVERSION  0,4,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904E4"
+    BEGIN
+      VALUE "CompanyName", "aciddev_"
+      VALUE "FileDescription", "Simple and fast music player."
+      VALUE "FileVersion", "v0.4a"
+      VALUE "InternalName", "mus2"
+      VALUE "LegalCopyright", "Public Domain"
+      VALUE "OriginalFilename", "mus2.exe"
+      VALUE "ProductName", "mus2"
+      VALUE "ProductVersion", "v0.4a"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1252
+  END
+END

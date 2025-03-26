@@ -75,8 +75,11 @@ String tags_get_title(Arena* arena, String path) {
 }
 
 String tags_get_album(Arena* arena, String path) {
-    if (isflac(path)) return tags_flac_get_tag(arena, path, sv("ALBUM"));
-    return tags_id3v2_get_frame(arena, path, sv("TALB"));
+    String str = {0};
+    if (isflac(path)) str = tags_flac_get_tag(arena, path, sv("ALBUM"));
+    else str = tags_id3v2_get_frame(arena, path, sv("TALB"));
+    if (!str.size) return tags_get_title(arena, path);
+    return str;
 }
 
 size_t tags_get_track_number(Arena* arena, String path) {

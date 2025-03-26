@@ -41,6 +41,18 @@ String ss_read_str(FILE* f) {
     return str;
 }
 
+String ss_read_line(FILE* f) {
+    StringBuilder* sb = array_new(StringBuilder, &main_arena);
+    char c = 0;
+    fread(&c, 1, 1, f);
+    while (c != '\n' && !feof(f)) {
+        *array_push(sb) = c;
+        fread(&c, 1, 1, f);
+    }
+    *array_push(sb) = 0;
+    return sv(sb->data);
+}
+
 void savestate_save(void) {
     FILE* f = fopen(".mus-savestate", "wb");
     if (f == NULL) return;
@@ -63,8 +75,76 @@ void savestate_save(void) {
     ss_write_char(f, music_paused());
     ss_write_char(f, repeat_mode);
     ss_write_char(f, current_tab);
+    ss_write_char(f, theme_selected);
     
     fclose(f);
+}
+
+unsigned char ss_parse_hex_octet(char* c) {
+    unsigned char color = 0;
+    char f = c[0], s = c[1];
+    if (f >= '0' && f <= '9') color += f-'0';
+    else if (f >= 'a' && f <= 'f') color += f-'a'+10;
+    else if (f >= 'A' && f <= 'F') color += f-'A'+10;
+    color *= 16;
+    if (s >= '0' && s <= '9') color += s-'0';
+    else if (s >= 'a' && s <= 'f') color += s-'a'+10;
+    else if (s >= 'A' && s <= 'F') color += s-'A'+10;
+    return color;
+}
+
+Color ss_parse_color(String color) {
+    if (!color.size) return (Color) {0, 0, 0, 255};
+    if (*color.bytes == '#') {
+        if (color.size != 7) return (Color) {0, 0, 0, 255};
+        Color c = {0, 0, 0, 255};
+        c.r = ss_parse_hex_octet(color.bytes + 1);
+        c.g = ss_parse_hex_octet(color.bytes + 3);
+        c.b = ss_parse_hex_octet(color.bytes + 5);
+        return c;
+    }
+    return (Color) {0, 0, 0, 255};
+}
+
+void ss_load_themes(void) {
+    themes->size = 0;
+    if (!dir_exists(sv(".mus-themes"))) return;
+    StringArray* d = dir_list(sv(".mus-themes"), &main_arena);
+    dir_change_cwd(sv(".mus-themes"));
+    
+    array_foreach(d, i) {
+        String file = array_get(d, i);
+        if (dir_exists(file)) continue;
+        
+        char* cstr = sv_to_cstr(file);
+        FILE* f = fopen(cstr, "r");
+        free(cstr);
+        if (f == NULL) continue;
+
+        printf("LOADING "SV_FMT"\n", SvFmt(file));
+        
+        CustomTheme ct = { sv("custom"), {0}, {0}, dark_theme };
+        
+        while (!feof(f) && !ferror(f)) {
+            String value = ss_read_line(f);
+            if (!value.size) continue;
+            String key = sv_split(&value, sv("="));
+            if (sv_compare(key, sv("name")))   ct.name = value;
+            if (sv_compare(key, sv("description"))) ct.description = value;
+            if (sv_compare(key, sv("author"))) ct.link = value;
+            if (sv_compare(key, sv("bg")))     ct.colors.bg = ss_parse_color(value);
+            if (sv_compare(key, sv("mg_off"))) ct.colors.mg_off = ss_parse_color(value);
+            if (sv_compare(key, sv("mg")))     ct.colors.mg = ss_parse_color(value);
+            if (sv_compare(key, sv("fg_off"))) ct.colors.fg_off = ss_parse_color(value);
+            if (sv_compare(key, sv("fg")))     ct.colors.fg = ss_parse_color(value);
+            if (sv_compare(key, sv("link")))   ct.colors.link = ss_parse_color(value);
+        }
+        
+        *array_push(themes) = ct;
+        fclose(f);
+    }
+    dir_change_cwd(sv(".."));
+    ui_theme_select(theme_selected);
 }
 
 void savestate_load(void) {
@@ -90,6 +170,15 @@ void savestate_load(void) {
     if (ss_read_char(f)) music_toggle_pause();
     music_set_repeat(ss_read_char(f));
     current_tab = ss_read_char(f);
+    theme_selected = ss_read_char(f);
+    if (theme_selected < 2) ui_theme_select(theme_selected);
     
     fclose(f);
+
+    ss_load_themes();
+
+    if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) {
+        theme_selected = 0;
+        ui_theme_select(theme_selected);
+    }
 }

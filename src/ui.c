@@ -31,7 +31,7 @@ Font font;
 
 int cursor = MOUSE_CURSOR_ARROW;
 
-Texture play, pause, backward, forward, repeat, repeat_one, go_back;
+Texture play, pause, backward, forward, repeat, repeat_one, go_back, refresh;
 
 bool seeking = false;
 
@@ -134,9 +134,19 @@ void ui_draw_icon(float x, float y, Texture icon, Color color) {
     DrawTexture(icon, frame.x + x, frame.y + y, color);
 }
 
-void ui_draw_texture(float x, float y, Texture texture) {
+float spinny_degrees = 0;
+void ui_draw_spinny(float x, float y, float r, Color bg, Color fg) {
+    DrawCircleSector((Vector2) {x, y}, r, spinny_degrees, spinny_degrees + 360-60, 20, fg);
+    DrawCircle(x, y, r-font_size*0.125f, bg);
+}
+
+void ui_draw_texture(float x, float y, float w, float h, Texture texture) {
     Rectangle frame = ui_get_frame();
-    DrawTexture(texture, frame.x + x, frame.y + y, WHITE);
+    if (texture.width) DrawTexture(texture, frame.x + x, frame.y + y, WHITE);
+    else {
+        DrawRectangle(frame.x + x, frame.y + y, w, h, theme->mg_off);
+        ui_draw_spinny(frame.x + x + w/2, frame.y + y + h/2, font_size*0.375f, theme->mg_off, theme->fg);
+    }
 }
 
 bool ui_mouse_in(float x, float y, float w, float h) {
@@ -170,7 +180,12 @@ void ui_draw_menubar(void) {
     Rectangle frame = ui_get_frame();
 
     // mus
-    float mus_size = ui_draw_text(font_size*0.25f, font_size*0.25f, sv("mus"), theme->fg, 0, 0, 1e9);
+    
+    bool loading = deferred_cover_array->size > 0;
+
+    float mus_size = ui_measure_text(sv("mus"));
+    if (loading) ui_draw_spinny(font_size*0.25f + mus_size/2, font_size*0.75f, font_size*0.375f, theme->mg_off, theme->fg);
+    else ui_draw_text(font_size*0.25f, font_size*0.25f, sv("mus"), theme->fg, 0, 0, 1e9);
 
     // tab buttons
     float c = font_size*0.5f + mus_size;
@@ -335,7 +350,7 @@ void ui_scrollbar(float size, float scroll) {
     float vp_size = frame.height;
     if (vp_size >= size) return;
     float scrolled = scroll / (size - vp_size);
-    float knob_size = font_size*0.66f;
+    int knob_size = font_size*0.66f;
     ui_draw_rect(frame.width-font_size*0.25f, 0, font_size*0.25f, frame.height, theme->bg);
     ui_draw_rect(frame.width-font_size*0.25f, scrolled*(frame.height-knob_size), font_size*0.25f, knob_size, theme->mg_off);
 }
@@ -403,7 +418,7 @@ void ui_draw_playlist(void) {
 
         if (playing >= 0) {
             SongMetadata meta = music_get_playing_metadata();
-            ui_draw_texture(w - f*6.5f, h - f*6.5f, meta.cover_art_6x);
+            ui_draw_texture(w - f*6.5f, h - f*6.5f, f*6.f, f*6.f, meta.cover_art_6x);
         }
         
         ui_scrollable(h1, &playlist_scroll);
@@ -425,7 +440,7 @@ void ui_draw_albums(void) {
         FilePathList files = LoadDroppedFiles();
         SetTraceLogLevel(LOG_NONE);
         for (size_t i = 0; i < files.count; i++) {
-            music_scan_folder(sv(files.paths[i]));
+            music_scan_folder(sv(windows_path_convert(files.paths[i])));
         }
         SetTraceLogLevel(LOG_INFO);
         UnloadDroppedFiles(files);
@@ -438,9 +453,12 @@ void ui_draw_albums(void) {
 
     if (album_selected) {
         Album album = array_get(albums, album_index);
+        if (album.artists.size == 0) album.artists = sv("<none>");
+        if (album.name.size == 0) album.name = sv("<none>");
+        if (album.year.size == 0) album.year = sv("<none>");
         
         float f = font_size, w = frame.width, s = i_album_scroll;
-        ui_draw_texture(f*0.5f, f*0.5f+s, album.cover_x8);
+        ui_draw_texture(f*0.5f, f*0.5f+s, f*8.f, f*8.f, album.cover_x8);
         ui_draw_text(f*9.f, f*0.5f+s, album.name, theme->fg, 0, 0, w - f*9.5f);
         ui_draw_text(f*9.f, f*1.5f+s, album.artists, theme->mg_off, 0, 0, w - f*9.5f);
         ui_draw_text(f*9.f, f*2.5f+s, album.year, theme->mg_off, 0, 0, w - f*9.5f);
@@ -449,8 +467,10 @@ void ui_draw_albums(void) {
         album_selected = album_selected && !IsKeyPressed(KEY_ESCAPE);
         array_foreach(album.tracks, i) {
             SongMetadata meta = array_get(album.tracks, i);
+            if (meta.artist.size == 0) meta.artist = sv("<none>");
+            if (meta.title.size == 0) meta.title = sv("<none>");
             bool hovered = ui_mouse_in(0, f*9.f + f*i+s, w, f) && ui_mouse_in_frame();
-            Color gray = hovered ? theme->fg_off : theme->mg_off;
+            Color gray = hovered ? theme->fg_off : theme->mg;
             if (hovered) {
                 cursor = MOUSE_CURSOR_POINTING_HAND;
                 ui_draw_rect(0, f*9.f + f*i+s, w, f, theme->mg_off);
@@ -490,7 +510,7 @@ void ui_draw_albums(void) {
             }
             
             ui_draw_rect(x, y, rw, rh, hovered ? theme->mg_off : theme->bg);
-            ui_draw_texture(x + f*0.5f, y + f*0.5f, album.cover_x6);
+            ui_draw_texture(x + f*0.5f, y + f*0.5f, f*6.f, f*6.f, album.cover_x6);
             String name = album.name.size ? album.name : sv("<none>");
             String artists = album.artists.size ? album.artists : sv("<none>");
             String year = album.year;
@@ -593,7 +613,7 @@ void ui_draw_browse(void) {
         FilePathList files = LoadDroppedFiles();
         SetTraceLogLevel(LOG_NONE);
         for (size_t i = 0; i < files.count; i++) {
-            music_scan_folder(sv(files.paths[i]));
+            music_scan_folder(sv(windows_path_convert(files.paths[i])));
         }
         SetTraceLogLevel(LOG_INFO);
         UnloadDroppedFiles(files);
@@ -627,6 +647,9 @@ void ui_draw_browse(void) {
     float r = 0;
     array_foreach(albums, i) {
         Album album = array_get(albums, i);
+        if (album.artists.size == 0) album.artists = sv("<none>");
+        if (album.name.size == 0) album.name = sv("<none>");
+        if (album.year.size == 0) album.year = sv("<none>");
         if (search->size && !ui_match_album(album, sv_from_sb(search))) continue;
         if (f*2.f + f*(r+1+album.tracks->size)+s < 0) {
             r += 1 + album.tracks->size;
@@ -634,7 +657,7 @@ void ui_draw_browse(void) {
         }
         if (f*2.f + f*r+s > frame.height) break;
         bool hovered = ui_mouse_in(0, f*2.f + f*r + s, w, f) && ui_mouse_in_frame();
-        Color gray = hovered ? theme->fg_off : theme->mg_off;
+        Color gray = hovered ? theme->fg_off : theme->mg;
         if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme->mg_off);
         if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
         float c = 0;
@@ -644,7 +667,7 @@ void ui_draw_browse(void) {
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, sv(" ("), gray, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, album.year, gray, 0, 0, w-f-c);
         c += ui_draw_text(f*0.5f + c, f*2.f + f*r+s, sv(")"), gray, 0, 0, w-f-c);
-        if ((first_album && search->size && IsKeyUp(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ENTER)) || (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
+        if ((first_album && search->size && search_focused && IsKeyUp(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ENTER)) || (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
             search_focused = false;
             music_unload();
             while (playlist->size > 0) music_remove_from_playlist(0);
@@ -659,10 +682,12 @@ void ui_draw_browse(void) {
         r++;
         array_foreach(tracklist, j) {
             SongMetadata meta = array_get(tracklist, j);
+            if (meta.artist.size == 0) meta.artist = sv("<none>");
+            if (meta.title.size == 0) meta.title = sv("<none>");
             
             if (search->size && !ui_match_song(meta, sv_from_sb(search))) continue;
             bool hovered = ui_mouse_in(0, f*2.f + f*r + s, w, f) && ui_mouse_in_frame();
-            Color gray = hovered ? theme->fg_off : theme->mg_off;
+            Color gray = hovered ? theme->fg_off : theme->mg;
             if (hovered) ui_draw_rect(0, f*2.f + f*r + s, w, f, theme->mg_off);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
             c = 0;
@@ -670,13 +695,15 @@ void ui_draw_browse(void) {
             c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.artist, theme->fg, 0, 0, w-f*2.f-c);
             c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, sv(" - "), gray, 0, 0, w-f*2.f-c);
             c += ui_draw_text(f*1.5f + c, f*2.f + f*r+s, meta.title, theme->fg, 0, 0, w-f*2.f-c);
-            if ((first_song && search->size && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ENTER)) || (hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
+            if ((first_song && search->size && search_focused && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ENTER)) || (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
                 search_focused = false;
+                music_unload();
+                while (playlist->size > 0) music_remove_from_playlist(0);
                 music_insert_into_playlist(meta.path);
             }
             if (first_song && search->size && search_focused) {
                 first_song = false;
-                ui_draw_text(w - f*0.5f, f*2.f + f*r + s, sv("Shift + Enter"), theme->mg_off, 1, 0, 1e9);
+                ui_draw_text(w - f*0.5f, f*2.f + f*r + s, sv("Shift + Enter"), gray, 1, 0, 1e9);
             }
             
             r++;
@@ -703,9 +730,25 @@ float about_scroll = 0.0f;
 
 int theme_selected = 0;
 
+void ui_set_icon(void) {
+    Image window_icon = LoadImageFromMemory(".png", (unsigned char*) _ICON_PNG, _ICON_PNG_LENGTH);
+    ImageResize(&window_icon, 32, 32);
+    SetWindowIcon(window_icon);
+    UnloadImage(window_icon);
+}
+
+typedef struct {
+    String name, description, link;
+    Theme colors;
+} CustomTheme;
+define_array_struct(CustomThemes, CustomTheme)
+
+CustomThemes* themes;
+
 void ui_theme_select(int t) {
     if (t == 0) theme = &dark_theme;
     if (t == 1) theme = &light_theme;
+    if (t > 1) theme = &array_get(themes, t-2).colors;
 }
 
 bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, int value) {
@@ -718,6 +761,8 @@ bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, in
     if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) *select = value;
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
+
+void ss_load_themes(void);
 
 void ui_draw_about(void) {
     Rectangle frame = ui_get_frame();
@@ -732,9 +777,40 @@ void ui_draw_about(void) {
     c += f*0.25f;
     if (ui_select(0.5*f + c, 0.5f*f +sc, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
     c += f*0.5f + ui_measure_text(sv("light"));
-
-    float y = 1.5f*f;
-    float start_text = theme_selected == 2 ? y : f*1.5f;
+    
+    float y = 2.f*f;
+    array_foreach(themes, i) {
+        CustomTheme ct = array_get(themes, i);
+        c += f*0.25f;
+        if (ui_select(0.5*f + c, 0.5f*f +sc, ct.name, theme->mg_off, theme->fg, &theme_selected, 2+i)) ui_theme_select(theme_selected);
+        c += f*0.5f + ui_measure_text(ct.name);
+        if (2+i == (size_t) theme_selected) {
+            if (ct.description.size) {
+                ui_draw_text(f*0.5f, y + sc, ct.description, theme->fg, 0, 0, frame.width-font_size);
+                y += font_size;
+            }
+            if (ct.link.size) {
+                float w = ui_draw_text(f*0.5f, y + sc, ct.link, theme->link, 0, 0, frame.width-font_size);
+                bool hovered = ui_mouse_in(f*0.5f, y + sc, w, font_size) && ui_mouse_in_frame();
+                if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
+                if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    char* cstr = sv_to_cstr(ct.link);
+                    OpenURL(cstr);
+                    free(cstr);
+                }
+                y += font_size;
+            }
+        }
+    }
+    c += f*0.25f;
+    
+    if (ui_draw_button(c + f*0.5f, f*0.5f + sc, refresh, theme->mg_off, theme->mg, theme->fg, true)) {
+        ss_load_themes();
+        if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) theme_selected = 0;
+        ui_theme_select(theme_selected);
+    }
+    
+    float start_text = theme_selected > 1 ? y : f*1.5f;
     
     String s = sv_from_bytes(_ABOUT_TXT, _ABOUT_TXT_LENGTH);
 
@@ -795,6 +871,7 @@ void ui_draw_main(void) {
 
 void ui_draw(void) {
     scroll_factor = GetScreenHeight()*0.1f;
+    spinny_degrees += GetFrameTime()*100.f;
     ui_draw_menubar();
     ui_draw_statusbar();
     ui_draw_main();
@@ -816,6 +893,7 @@ void ui_load_icons(void) {
     repeat = ui_load_icon(_REPEAT_PNG, _REPEAT_PNG_LENGTH);
     repeat_one = ui_load_icon(_REPEAT_ONE_PNG, _REPEAT_ONE_PNG_LENGTH);
     go_back = ui_load_icon(_GO_BACK_PNG, _GO_BACK_PNG_LENGTH);
+    refresh = ui_load_icon(_REFRESH_PNG, _REFRESH_PNG_LENGTH);
 }
 
 void ui_unload_icons(void) {
@@ -843,8 +921,10 @@ void ui_unload_font(void) {
 void ui_load(void) {
     ds = array_new(DrawStack, &main_arena);
     search = array_new(StringBuilder, &main_arena);
+    themes = array_new(CustomThemes, &main_arena);
     ui_load_font(24.f);
     ui_load_icons();
+    ui_set_icon();
 }
 
 void ui_unload(void) {

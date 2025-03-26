@@ -18,9 +18,10 @@ if [[ "t${1}" == "twindows" ]]; then
     FLAGS="-Wall -Wextra -Werror -g -std=gnu99 -I./ext/raylib-w/include -L./ext/raylib-w/lib -I./ext/strap/src -L./ext/strap"
     LIBS="-l:libraylib.a -lgdi32 -lwinmm -lstrap"
 elif [[ "t${1}" == "twindows-release" ]]; then
+    x86_64-w64-mingw32-windres assets/app.rc -O coff -o app.res --use-temp-file
     CC="x86_64-w64-mingw32-gcc"
     FLAGS="-Wall -Wextra -Werror -g -mwindows -std=gnu99 -I./ext/raylib-w/include -L./ext/raylib-w/lib -I./ext/strap/src -L./ext/strap"
-    LIBS="-l:libraylib.a -lgdi32 -lwinmm -lstrap"
+    LIBS="app.res -l:libraylib.a -lgdi32 -lwinmm -lstrap"
 else
     CC="gcc"
     FLAGS="-Wall -Wextra -Werror -g -std=gnu99 -I./ext/raylib/include -L./ext/raylib/lib -I./ext/strap/src -L./ext/strap"

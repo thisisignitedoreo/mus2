@@ -1,0 +1,9 @@
+name=gruvbox
+description=Dark Gruvbox theme adapted for mus2.
+author=https://github.com/morhetz/gruvbox
+bg=#282828
+mg_off=#504945
+mg=#665C54
+fg_off=#BDAE93
+fg=#EBDBB2
+link=#83A598
