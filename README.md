@@ -29,5 +29,5 @@ $ ./build.sh
 - @raysan5 for the amazing raylib library
 - @googlefonts for a font for this app (OpenSans)
 - @google for all the icons for this app
-- @morhertz and @rexim for color schemes that were adapted
+- authors of adapted themes
 

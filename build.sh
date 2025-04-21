@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -22,6 +22,10 @@ elif [[ "t${1}" == "twindows-release" ]]; then
     CC="x86_64-w64-mingw32-gcc"
     FLAGS="-Wall -Wextra -Werror -g -mwindows -std=gnu99 -I./ext/raylib-w/include -L./ext/raylib-w/lib -I./ext/strap/src -L./ext/strap"
     LIBS="app.res -l:libraylib.a -lgdi32 -lwinmm -lstrap"
+elif [[ "t${1}" == "tasan" ]]; then
+    CC="gcc"
+    FLAGS="-Wall -Wextra -Werror -g -fsanitize=address -std=gnu99 -I./ext/raylib/include -L./ext/raylib/lib -I./ext/strap/src -L./ext/strap"
+    LIBS="-l:libraylib.a -lm -lpthread -ldl -lrt -lstrap"
 else
     CC="gcc"
     FLAGS="-Wall -Wextra -Werror -g -std=gnu99 -I./ext/raylib/include -L./ext/raylib/lib -I./ext/strap/src -L./ext/strap"
