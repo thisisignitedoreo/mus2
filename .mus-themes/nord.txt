@@ -1,0 +1,9 @@
+name=nord
+description=Nord theme adapted for mus2.
+author=https://www.nordtheme.com
+bg=#2e3440
+mg_off=#434c5e
+mg=#4c566a
+fg_off=#d8dee9
+fg=#eceff4
+link=#81a1c1

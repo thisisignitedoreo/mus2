@@ -1,0 +1,9 @@
+name=rose pine
+description=Rose Pine theme adapted for mus2.
+author=https://rosepinetheme.com
+bg=#191724
+mg_off=#1f1d2e
+mg=#26233a
+fg_off=#908caa
+fg=#e0def4
+link=#c4a7e7
