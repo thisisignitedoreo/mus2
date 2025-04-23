@@ -105,6 +105,29 @@ float ui_draw_text(float x, float y, String string, Color color, float ax, float
     return width;
 }
 
+float ui_measure_text_multiline(String string) {
+    float max_width = 0;
+    while (string.size) {
+        String line = sv_split(&string, sv("\n"));
+        float size = ui_measure_text(line);
+        if (max_width < size) max_width = size;
+    }
+    return max_width;
+}
+
+float ui_draw_text_multiline(float x, float y, String string, Color color) {
+    float max_width = 0;
+    int l = 0;
+    while (string.size) {
+        String line = sv_split(&string, sv("\n"));
+        float size = ui_measure_text(line);
+        ui_draw_text(x, y + l*font_size, line, color, 0, 0, size);
+        l++;
+        if (max_width < size) max_width = size;
+    }
+    return max_width;
+}
+
 void ui_draw_rect(float x, float y, float width, float height, Color color) {
     Rectangle frame = ui_get_frame();
     float w = frame.x + x + width > frame.x + frame.width ? frame.width - x : width;
@@ -1116,10 +1139,10 @@ void ui_unload_font(void) {
 }
 
 void ui_load(void) {
-    ds = array_new(DrawStack, &main_arena);
-    search = array_new(StringBuilder, &main_arena);
-    album_add = array_new(StringBuilder, &main_arena);
-    themes = array_new(CustomThemes, &main_arena);
+    ds = array_new(&main_arena);
+    search = array_new(&main_arena);
+    album_add = array_new(&main_arena);
+    themes = array_new(&main_arena);
     cwd = dir_get_cwd(&main_arena);
     ui_load_font(24.f);
     ui_load_icons();

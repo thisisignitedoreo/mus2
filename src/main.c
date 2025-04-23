@@ -84,6 +84,7 @@ int main(void) {
             if (IsKeyPressed(KEY_SPACE)) music_toggle_pause();
             if (IsKeyPressed(KEY_LEFT)) music_playlist_backward();
             if (IsKeyPressed(KEY_RIGHT)) music_playlist_forward();
+            if (IsKeyPressed(KEY_R)) music_set_repeat((music_repeat()+1)%COUNT_REPEAT);
         
             if (IsKeyPressed(KEY_ONE)) current_tab = TAB_PLAYLIST;
             if (IsKeyPressed(KEY_TWO)) current_tab = TAB_ALBUMS;
@@ -115,10 +116,16 @@ int main(void) {
         if (debug) {
             size_t bytes = 0;
             for (Region* r = main_arena.begin; r; r = r->next) bytes += r->cursor;
-            size_t width = ui_measure_text(sv((char*) TextFormat("memory usage: %db, %d FPS", bytes, GetFPS())));
-            ui_draw_rect(font_size*0.5f, font_size*0.5f, width + font_size, font_size*3.f, theme->mg);
-            ui_draw_text(font_size, font_size, sv((char*) TextFormat("%dx%d, p: %dx%d", GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY())), theme->fg, 0, 0, 1e9);
-            ui_draw_text(font_size, font_size*2.f, sv((char*) TextFormat("memory usage: %db, %d FPS", bytes, GetFPS())), theme->fg, 0, 0, 1e9);
+            StringBuilder* sb = array_new(&main_arena);
+            int l = 0;
+            array_sb_printf(sb, "debug info:"); l++;
+            array_sb_printf(sb, "\nW: %dx%d", GetScreenWidth(), GetScreenHeight()); l++;
+            array_sb_printf(sb, "\nP: %dx%d", GetMouseX(), GetMouseY()); l++;
+            array_sb_printf(sb, "\nM: %.1f%s", bytes < 1024 ? (float) bytes : bytes < 1024*1024 ? (float) bytes/1024 : bytes < 1024*1024*1024 ? (float) bytes/1024/1024 : (float) bytes/1024/1024/1024, bytes < 1024 ? " B" : bytes < 1024*1024 ? " KiB" : bytes < 1024*1024*1024 ? " MiB" : " GiB"); l++;
+            array_sb_printf(sb, "\n%d FPS", GetFPS()); l++;
+            float w = ui_measure_text_multiline(sv_from_sb(sb));
+            ui_draw_rect(font_size*0.5f, font_size*0.5f, w + font_size, font_size*(1+l), theme->mg);
+            ui_draw_text_multiline(font_size, font_size, sv_from_sb(sb), theme->fg);
         }
         
         EndDrawing();

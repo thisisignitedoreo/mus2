@@ -113,7 +113,7 @@ void music_scan_file(String path) {
             return;
         }
     }
-    SongCache* tracklist = array_new(SongCache, &main_arena);
+    SongCache* tracklist = array_new(&main_arena);
     *array_push(tracklist) = meta;
     Album album = {
         meta.album_name, meta.album_artist, meta.year,
@@ -253,10 +253,10 @@ void music_insert_into_playlist(String path) {
 }
 
 void music_init(void) {
-    playlist = array_new(StringArray, &main_arena);
-    cache = array_new(SongCache, &main_arena);
-    albums = array_new(Albums, &main_arena);
-    deferred_cover_array = array_new(U32Array, &main_arena);
+    playlist = array_new(&main_arena);
+    cache = array_new(&main_arena);
+    albums = array_new(&main_arena);
+    deferred_cover_array = array_new(&main_arena);
 }
 
 void music_playlist_backward(void) {

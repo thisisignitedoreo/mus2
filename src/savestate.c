@@ -42,7 +42,7 @@ String ss_read_str(FILE* f) {
 }
 
 String ss_read_line(FILE* f) {
-    StringBuilder* sb = array_new(StringBuilder, &main_arena);
+    StringBuilder* sb = array_new(&main_arena);
     char c = 0;
     fread(&c, 1, 1, f);
     while (c != '\n' && !feof(f)) {

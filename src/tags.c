@@ -294,7 +294,7 @@ String tags_id3v2_get_frame(Arena* arena, String path, String frame) {
 }
 
 String utf16_readstr(Arena* arena, FILE* f) {
-    StringBuilder* sb = array_new(StringBuilder, arena);
+    StringBuilder* sb = array_new(arena);
     char word[2];
     fread(word, 1, 2, f);
     while (!(word[0] == 0 && word[1] == 0)) {
@@ -308,7 +308,7 @@ String utf16_readstr(Arena* arena, FILE* f) {
 }
 
 String utf8_readstr(Arena* arena, FILE* f) {
-    StringBuilder* sb = array_new(StringBuilder, arena);
+    StringBuilder* sb = array_new(arena);
     char octet;
     fread(&octet, 1, 1, f);
     while (octet != 0) {
@@ -415,7 +415,7 @@ void tags_write_utf8_codepoint(StringBuilder* sb, unsigned int codepoint) {
 
 String tags_utf16_to_utf8(Arena* arena, String utf16) {
     if (utf16.size == 0) return utf16;
-    StringBuilder* sb = array_new(StringBuilder, arena);
+    StringBuilder* sb = array_new(arena);
     bool big_endian = sv_startswith(utf16, sv("\xFF\xFE"));
     utf16.bytes += 2;
     utf16.size -= 2;
