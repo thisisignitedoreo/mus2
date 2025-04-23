@@ -362,8 +362,8 @@ void ui_draw_statusbar(void) {
         //ui_draw_circle(f*1.f + c + perc*(w - f*5.f - c), f*2.5f, f*0.3f, theme->fg);
         String text = sv((char*) TextFormat("%d:%02d", second/60, second%60));
         size_t width = ui_measure_text(text);
-        ui_draw_rect(f*1.f + c + perc*(w - f*5.f - c) - width*0.5f - f*0.25f, f, width + f*0.5f, f, theme->bg);
-        ui_draw_text(f*1.f + c + perc*(w - f*5.f - c), f*2.f, text, theme->fg, 0.5f, 1.f, 1e9);
+        ui_draw_rect(f*1.f + c + perc*(w - f*5.f - c - width*0.5f - f*0.25f) - width*0.5f - f*0.25f, f, width + f*0.5f, f, theme->bg);
+        ui_draw_text(f*1.f + c + perc*(w - f*5.f - c - width*0.5f - f*0.25f), f*2.f, text, theme->fg, 0.5f, 1.f, 1e9);
     }
     
     ui_draw_rect(f*1.f + c, f*2.5f - f*0.0625f, w - f*6.f - c, f*0.125f, theme->mg);
