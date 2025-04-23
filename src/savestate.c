@@ -96,12 +96,20 @@ unsigned char ss_parse_hex_octet(char* c) {
 Color ss_parse_color(String color) {
     if (!color.size) return (Color) {0, 0, 0, 255};
     if (*color.bytes == '#') {
-        if (color.size != 7) return (Color) {0, 0, 0, 255};
-        Color c = {0, 0, 0, 255};
-        c.r = ss_parse_hex_octet(color.bytes + 1);
-        c.g = ss_parse_hex_octet(color.bytes + 3);
-        c.b = ss_parse_hex_octet(color.bytes + 5);
-        return c;
+        if (color.size == 7) {
+            Color c = {0, 0, 0, 255};
+            c.r = ss_parse_hex_octet(color.bytes + 1);
+            c.g = ss_parse_hex_octet(color.bytes + 3);
+            c.b = ss_parse_hex_octet(color.bytes + 5);
+            return c;
+        } else if (color.size == 9) {
+            Color c = {0, 0, 0, 0};
+            c.r = ss_parse_hex_octet(color.bytes + 1);
+            c.g = ss_parse_hex_octet(color.bytes + 3);
+            c.b = ss_parse_hex_octet(color.bytes + 5);
+            c.b = ss_parse_hex_octet(color.bytes + 7);
+            return c;
+        } else return (Color) {0, 0, 0, 255};
     }
     return (Color) {0, 0, 0, 255};
 }

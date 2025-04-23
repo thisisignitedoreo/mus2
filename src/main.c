@@ -24,16 +24,29 @@ float font_size;
 #include "win32.h"
 
 #ifdef _WIN32
-char* Utf8Conv(char *path) {
+String Utf8Conv(String str) {
+    char* path = sv_to_cstr(str);
     static char shortPath[MAX_PATH];
     wchar_t wPath[MAX_PATH];
     MultiByteToWideChar(CP_UTF8, 0, path, -1, wPath, MAX_PATH);
     WideCharToMultiByte(CP_ACP, 0, wPath, -1, shortPath, MAX_PATH, NULL, NULL);
-    return shortPath;
+    free(path);
+    return sv(shortPath);
+}
+String Utf8Unconv(String str) {
+    char* path = sv_to_cstr(str);
+    static char shortPath[MAX_PATH];
+    wchar_t wPath[MAX_PATH];
+    MultiByteToWideChar(CP_ACP, 0, path, -1, wPath, MAX_PATH);
+    WideCharToMultiByte(CP_UTF8, 0, wPath, -1, shortPath, MAX_PATH, NULL, NULL);
+    free(path);
+    return sv(shortPath);
 }
 #define windows_path_convert(x) Utf8Conv(x)
+#define windows_unpath_convert(x) Utf8Unconv(x)
 #else
 #define windows_path_convert(x) x
+#define windows_unpath_convert(x) x
 #endif
 
 #include "tags.c"
@@ -67,7 +80,7 @@ int main(void) {
         
         if (IsKeyPressed(KEY_F1)) debug = !debug;
 
-        if (!search_focused) {
+        if (!search_focused && !album_add_focused) {
             if (IsKeyPressed(KEY_SPACE)) music_toggle_pause();
             if (IsKeyPressed(KEY_LEFT)) music_playlist_backward();
             if (IsKeyPressed(KEY_RIGHT)) music_playlist_forward();

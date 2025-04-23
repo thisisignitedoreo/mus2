@@ -50,34 +50,48 @@ bool isflac(String path) {
     char* cstr = sv_to_cstr(path);
     FILE* f = fopen(cstr, "rb");
     free(cstr);
-    char m[4] = {0};
+    static char m[4];
     fread(m, 4, 1, f);
     fclose(f);
     return memcmp(m, "fLaC", 4) == 0;
 }
 
+bool isid3v2(String path) {
+    char* cstr = sv_to_cstr(path);
+    FILE* f = fopen(cstr, "rb");
+    free(cstr);
+    static char m[3];
+    fread(m, 3, 1, f);
+    fclose(f);
+    return memcmp(m, "ID3", 3) == 0;
+}
+
 String tags_get_artist(Arena* arena, String path) {
     if (isflac(path)) return tags_flac_get_tag(arena, path, sv("ARTIST"));
-    return tags_id3v2_get_frame(arena, path, sv("TPE1"));
+    if (isid3v2(path)) return tags_id3v2_get_frame(arena, path, sv("TPE1"));
+    return (String) {0};
 }
 
 String tags_get_album_artist(Arena* arena, String path) {
     String str = {0};
     if (isflac(path)) str = tags_flac_get_tag(arena, path, sv("ALBUMARTIST"));
-    else str = tags_id3v2_get_frame(arena, path, sv("TPE2"));
+    else if (isid3v2(path)) str = tags_id3v2_get_frame(arena, path, sv("TPE2"));
+    else return str;
     if (!str.size) return tags_get_artist(arena, path);
     return str;
 }
 
 String tags_get_title(Arena* arena, String path) {
     if (isflac(path)) return tags_flac_get_tag(arena, path, sv("TITLE"));
-    return tags_id3v2_get_frame(arena, path, sv("TIT2"));
+    if (isid3v2(path)) return tags_id3v2_get_frame(arena, path, sv("TIT2"));
+    return (String) {0};
 }
 
 String tags_get_album(Arena* arena, String path) {
     String str = {0};
     if (isflac(path)) str = tags_flac_get_tag(arena, path, sv("ALBUM"));
-    else str = tags_id3v2_get_frame(arena, path, sv("TALB"));
+    else if (isid3v2(path)) str = tags_id3v2_get_frame(arena, path, sv("TALB"));
+    else return str;
     if (!str.size) return tags_get_title(arena, path);
     return str;
 }
@@ -85,19 +99,22 @@ String tags_get_album(Arena* arena, String path) {
 size_t tags_get_track_number(Arena* arena, String path) {
     String str = {0};
     if (isflac(path)) str = tags_flac_get_tag(arena, path, sv("TRACKNUMBER"));
-    else str = tags_id3v2_get_frame(arena, path, sv("TRCK"));
+    else if (isid3v2(path)) str = tags_id3v2_get_frame(arena, path, sv("TRCK"));
+    else return 0;
     while (str.size && str.bytes[0] == '0') { str.bytes++; str.size--; }
     return sv_to_int(str);
 }
 
 String tags_get_year(Arena* arena, String path) {
     if (isflac(path)) return tags_flac_get_tag(arena, path, sv("DATE"));
-    return tags_id3v2_get_frame(arena, path, sv("TYER"));
+    if (isid3v2(path)) return tags_id3v2_get_frame(arena, path, sv("TYER"));
+    return (String) {0};
 }
 
 TagImage tags_get_cover_art(Arena* arena, String path) {
     if (isflac(path)) return tags_flac_get_picture(arena, path, 3);
-    return tags_id3v2_get_pic_frame(arena, path, 3);
+    if (isid3v2(path)) return tags_id3v2_get_pic_frame(arena, path, 3);
+    return (TagImage) {0};
 }
 
 String tags_flac_get_tag(Arena* arena, String path, String name) {

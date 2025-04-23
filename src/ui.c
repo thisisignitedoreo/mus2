@@ -24,18 +24,13 @@ Theme light_theme = {
 Theme* theme = &dark_theme;
 
 define_array_struct(DrawStack, Rectangle)
-
 DrawStack* ds;
 
 Font font;
-
 int cursor = MOUSE_CURSOR_ARROW;
-
-Texture play, pause, backward, forward, repeat, repeat_one, go_back, refresh;
-
+Texture play, pause, backward, forward, repeat, repeat_one, go_back, refresh, add;
 bool seeking = false;
-
-float scroll_factor = 0.0f;
+float scroll_factor = 0;
 
 typedef enum {
     TAB_PLAYLIST,
@@ -137,8 +132,8 @@ void ui_draw_icon(float x, float y, Texture icon, Color color) {
 
 float spinny_degrees = 0;
 void ui_draw_spinny(float x, float y, float r, Color bg, Color fg) {
-    DrawCircleSector((Vector2) {x, y}, r, spinny_degrees, spinny_degrees + 360-60, 20, fg);
-    DrawCircle(x, y, r-font_size*0.125f, bg);
+    DrawCircleSector((Vector2) {(int)x, (int)y}, r, spinny_degrees, spinny_degrees + 360-60, 20, fg);
+    DrawCircle((int)x, (int)y, r-font_size*0.125f, bg);
 }
 
 void ui_draw_texture(float x, float y, float w, float h, Texture texture) {
@@ -175,6 +170,70 @@ bool ui_draw_button(float x, float y, Texture icon, Color bg, Color bg_on, Color
         ui_draw_icon(x, y, icon, fg);
     }
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
+
+bool ui_update_input(StringBuilder* str, size_t* cursor, bool* focused) {
+    bool updated = false;
+    if (*focused) {
+        if (IsKeyPressed(KEY_ESCAPE)) *focused = false;
+        else if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && *cursor > 0) {
+            int size = 0;
+            (void)GetCodepointPrevious(array_set(str, *cursor), &size);
+            for (int i = 0; i < size; i++) array_remove(str, *cursor-size);
+            *cursor -= size;
+            updated = true;
+        } else if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && *cursor > 0) {
+            int size = 0;
+            (void)GetCodepointPrevious(array_set(str, *cursor), &size);
+            *cursor -= size;
+        } else if ((IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE)) && *cursor < str->size) {
+            int size = 0;
+            (void)GetCodepointNext(array_set(str, *cursor), &size);
+            for (int i = 0; i < size; i++) array_remove(str, *cursor);
+            updated = true;
+        } else if ((IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) && *cursor < str->size) {
+            int size = 0;
+            (void)GetCodepointNext(array_set(str, *cursor), &size);
+            *cursor += size;
+        } else {
+            int ch = GetCharPressed(), size = 0;
+            if (ch != 0) {
+                const char* utf8 = CodepointToUTF8(ch, &size);
+                for (int i = 0; i < size; i++) *(char*)array_add(str, *cursor + i) = utf8[i];
+                *cursor += size;
+                updated = true;
+            }
+        }
+    }
+    return updated;
+}
+
+void ui_draw_shadow_vd(int x, int y, int w, int h, Color col) {
+    for (int i = y; i < y+h; i++) {
+        int alpha = (float)col.a/255*((float)(i-y)/h)*255;
+        DrawRectangle(x, i, w, 1, (Color) { col.r, col.g, col.b, alpha });
+    }
+}
+
+void ui_draw_shadow_vu(int x, int y, int w, int h, Color col) {
+    for (int i = y; i < y+h; i++) {
+        int alpha = (float)col.a/255*(1-(float)(i-y)/h)*255;
+        DrawRectangle(x, i, w, 1, (Color) { col.r, col.g, col.b, alpha });
+    }
+}
+
+void ui_draw_shadow_hl(int x, int y, int w, int h, Color col) {
+    for (int i = x; i < x+w; i++) {
+        int alpha = (float)col.a/255*(1-(float)(i-x)/w)*255;
+        DrawRectangle(i, y, 1, h, (Color) { col.r, col.g, col.b, alpha });
+    }
+}
+
+void ui_draw_shadow_hr(int x, int y, int w, int h, Color col) {
+    for (int i = x; i < x+w; i++) {
+        int alpha = (float)col.a/255*((float)(i-x)/w)*255;
+        DrawRectangle(i, y, 1, h, (Color) { col.r, col.g, col.b, alpha });
+    }
 }
 
 // ACTUAL UI STUFF
@@ -392,7 +451,7 @@ void ui_draw_playlist(void) {
             if (!meta.title.size) meta.title = sv("<none>");
             if (!meta.artist.size) meta.artist = sv("<none>");
             
-            bool hovered = ui_mouse_in(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size) && ui_mouse_in_frame() && !ui_mouse_in(w - f*6.5f, h - f*6.5f, f*6.f, f*6.f);
+            bool hovered = ui_mouse_in(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size) && ui_mouse_in_frame() && (playing < 0 ? true : !ui_mouse_in(w - f*6.5f, h - f*6.5f, f*6.f, f*6.f));
             Color gray = i == (size_t) playing || hovered ? theme->fg_off : theme->mg;
             if (hovered) ui_draw_rect(0, playlist_scroll + font_size*(i+0.5f), frame.width, font_size, theme->mg);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
@@ -436,12 +495,54 @@ float album_scroll = 0.0f;
 
 float i_album_scroll = 0.0f;
 
+StringBuilder* album_add;
+size_t album_add_cursor = 0;
+bool album_add_focused = false;
+
+bool aadd_folder_exists = false;
+StringArray* aadd_folder_content;
+String aadd_real_path;
+String aadd_leftover_path;
+
+String cwd;
+
+bool aadd_file = false;
+
+float aadd_scroll = 0.f;
+
+void ui_update_aadd(void) {
+    String full_path = windows_path_convert(sv_from_sb(album_add));
+    if (file_exists(full_path)) {
+        aadd_real_path = full_path;
+        aadd_file = true;
+        aadd_folder_exists = false;
+    } else {
+        size_t path_size = album_add->size;
+        if (!dir_exists(full_path)) {
+            for (size_t i = album_add->size; i > 0; i--) {
+                char ch = array_get(album_add, i-1);
+                if (ch == '/' || ch == '\\') { path_size = i; break; }
+            }
+        }
+        String p = windows_path_convert(sv_from_bytes(album_add->data, path_size));
+        aadd_real_path = sv_copy(p, &main_arena); // windows_path_convert uses static memory
+        p = windows_path_convert(sv_from_bytes(album_add->data + path_size, album_add->size - path_size));
+        aadd_leftover_path = sv_copy(p, &main_arena);
+        aadd_folder_exists = dir_exists(aadd_real_path);
+        if (aadd_folder_exists) {
+            aadd_folder_content = dir_list(aadd_real_path, &main_arena);
+        }
+    }
+}
+
+bool ui_startswith(String, String);
+
 void ui_draw_albums(void) {
     if (IsFileDropped() && ui_mouse_in_frame()) {
         FilePathList files = LoadDroppedFiles();
         SetTraceLogLevel(LOG_NONE);
         for (size_t i = 0; i < files.count; i++) {
-            music_scan_folder(sv(windows_path_convert(files.paths[i])));
+            music_scan_folder(windows_path_convert(sv(files.paths[i])));
         }
         SetTraceLogLevel(LOG_INFO);
         UnloadDroppedFiles(files);
@@ -493,8 +594,77 @@ void ui_draw_albums(void) {
         float size = f*9.5f + f*(album.tracks->size);
         ui_scrollable(size, &i_album_scroll);
         ui_scrollbar(size, i_album_scroll);
+    } else if (album_add_focused) {
+        if (ui_draw_button(font_size*0.5f, font_size*0.5f + aadd_scroll, go_back, theme->bg, theme->mg, theme->fg, true)) {
+            album_add_focused = false; album_add->size = 0; album_add_cursor = 0;
+            aadd_folder_exists = false; aadd_file = false;
+        }
+        float text_size = 0;
+        float bar_size = 2;
+        float bar_offset = 1 + bar_size;
+        if (album_add->size) {
+            float pre = ui_draw_text(font_size*2.f, font_size*0.5f + aadd_scroll, sv_from_bytes(album_add->data, album_add_cursor), theme->fg, 0, 0, frame.width - font_size*2.5f);
+            text_size = pre + ui_draw_text(font_size*2.f + pre + bar_offset, font_size*0.5f + aadd_scroll, sv_from_bytes(album_add->data + album_add_cursor, album_add->size - album_add_cursor), theme->fg, 0, 0, frame.width - font_size*2.5f - pre - bar_offset);
+            if (font_size*2.5f + pre < frame.width) ui_draw_rect(font_size*2.f + pre + 1, font_size*0.5f + aadd_scroll, bar_size, font_size, theme->fg_off);
+        } else {
+            ui_draw_rect(font_size*2.f, font_size*0.5f + aadd_scroll, bar_size, font_size, theme->fg_off);
+            text_size = ui_draw_text(font_size*2.f + bar_offset, font_size*0.5f + aadd_scroll, sv("enter a path..."), theme->mg, 0, 0, frame.width - font_size*2.5f);
+        }
+        String enter = sv("Enter");
+        float enter_size = ui_measure_text(enter);
+        if (font_size*2.5f + text_size + enter_size < frame.width) ui_draw_text(frame.width - enter_size - font_size*0.5f, font_size*0.5f + aadd_scroll, enter, theme->mg, 0, 0, enter_size);
+        
+        if (ui_update_input(album_add, &album_add_cursor, &album_add_focused)) ui_update_aadd();
+
+        int r = 0;
+        float f = font_size, w = frame.width;
+        if (aadd_folder_exists) {
+            dir_change_cwd(aadd_real_path);
+            array_foreach(aadd_folder_content, j) {
+                String file = array_get(aadd_folder_content, j);
+                bool selectable = dir_exists(file) || sv_endswith(file, sv(".mp3")) || sv_endswith(file, sv(".flac"));
+                if (sv_compare(file, sv(".")) || sv_compare(file, sv("..")) || !selectable || !ui_startswith(file, aadd_leftover_path)) continue;
+                bool hovered = ui_mouse_in_frame() && ui_mouse_in(0, f*2.f + f*r + aadd_scroll, w, f);
+                if (hovered) ui_draw_rect(0, f*2.f + f*r + aadd_scroll, w, f, theme->mg);
+                if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
+                if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    aadd_scroll = 0.0f;
+                    if (!aadd_leftover_path.size) {
+                        if (!sv_endswith(sv_from_sb(album_add), sv("/")) && !sv_endswith(sv_from_sb(album_add), sv("\\"))) {
+                            *array_push(album_add) = '/';
+                        }
+                    }
+                    array_sb_push_string(album_add, windows_unpath_convert(sv_from_bytes(file.bytes + windows_unpath_convert(aadd_leftover_path).size, file.size - windows_unpath_convert(aadd_leftover_path).size)));
+                    album_add_cursor = album_add->size;
+                    ui_update_aadd();
+                }
+                ui_draw_text(f*0.5f, f*2.f + f*r + aadd_scroll, windows_unpath_convert(file), theme->fg, 0, 0, w-f);
+                r++;
+            }
+            dir_change_cwd(cwd);
+        } else if (aadd_file) {
+            if (isflac(aadd_real_path)) ui_draw_text(f*0.5f, f*2.f + f*r + aadd_scroll, sv("<FLAC file>"), theme->fg_off, 0, 0, w-f);
+            else if (isid3v2(aadd_real_path)) ui_draw_text(f*0.5f, f*2.f + f*r + aadd_scroll, sv("<MP3 file>"), theme->fg_off, 0, 0, w-f);
+            else ui_draw_text(f*0.5f, f*2.f + f*r + aadd_scroll, sv("<unsupported file>"), theme->fg_off, 0, 0, w-f);
+            r++;
+        } else {
+            ui_draw_text(f*0.5f, f*2.f + f*r + aadd_scroll, sv("<no such directory>"), theme->fg_off, 0, 0, w-f);
+            r++;
+        }
+        float size = (r+2.5f)*f;
+        ui_scrollable(size, &aadd_scroll);
+        ui_scrollbar(size, aadd_scroll);
+        if (IsKeyPressed(KEY_ENTER)) {
+            if (aadd_file) music_insert_into_playlist(aadd_real_path);
+            else if (aadd_folder_exists) music_scan_folder(aadd_real_path);
+            album_add_focused = false; album_add->size = 0; album_add_cursor = 0;
+            aadd_folder_exists = false; aadd_file = false;
+        }
     } else if (albums->size == 0) {
         ui_draw_text(frame.width/2, frame.height/2, sv("drag-n-drop a folder here"), theme->mg, 0.5f, 0.5f, 1e9);
+        if (ui_draw_button(frame.width - font_size*1.5f, font_size*0.5f, add, theme->bg, theme->mg, theme->fg, true)) {
+            album_add_focused = true;
+        }
     } else {
         i_album_scroll = 0.f;
         float r = 0, c = 0, s = album_scroll, e = 0;
@@ -504,7 +674,7 @@ void ui_draw_albums(void) {
             Album album = array_get(albums, i);
             
             float x = c*rw + f*0.5f, y = r*rh + f*0.5f + s;
-            bool hovered = ui_mouse_in(x, y, rw, rh) && ui_mouse_in_frame();
+            bool hovered = ui_mouse_in(x, y, rw, rh) && ui_mouse_in_frame() && !ui_mouse_in(frame.width - font_size*1.5f, font_size*0.5f, font_size, font_size);
             if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
             if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 album_selected = true; album_index = i;
@@ -531,30 +701,18 @@ void ui_draw_albums(void) {
         float size = (r+1)*rh + f;
         ui_scrollable(size, &album_scroll);
         ui_scrollbar(size, album_scroll);
+        
+        if (ui_draw_button(frame.width - font_size*1.5f, font_size*0.5f, add, theme->bg, theme->mg, theme->fg, true)) {
+            album_add_focused = true;
+        }
     }
     
     ui_end_scissor_mode();
 }
 
 StringBuilder* search;
+size_t search_cursor = 0;
 bool search_focused = false;
-
-void ui_update_search(void) {
-    if (search_focused) {
-        if (IsKeyPressed(KEY_ESCAPE)) search_focused = false;
-        else if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && search->size > 0) {
-            int size = 0;
-            (void)GetCodepointPrevious(array_set(search, search->size), &size);
-            search->size -= size;
-        } else {
-            int ch = GetCharPressed(), size = 0;
-            if (ch != 0) {
-                const char* utf8 = CodepointToUTF8(ch, &size);
-                for (int i = 0; i < size; i++) *array_push(search) = utf8[i];
-            }
-        }
-    }
-}
 
 float browse_scroll = 0.0f;
 
@@ -578,6 +736,11 @@ bool ui_compare(String a, String b) {
         i += size_a;
     }
     return true;
+}
+
+bool ui_startswith(String a, String b) {
+    if (a.size < b.size) return false;
+    return ui_compare(sv_from_bytes(a.bytes, b.size), b);
 }
 
 bool ui_string_in(String a, String b) {
@@ -614,7 +777,7 @@ void ui_draw_browse(void) {
         FilePathList files = LoadDroppedFiles();
         SetTraceLogLevel(LOG_NONE);
         for (size_t i = 0; i < files.count; i++) {
-            music_scan_folder(sv(windows_path_convert(files.paths[i])));
+            music_scan_folder(windows_path_convert(sv(files.paths[i])));
         }
         SetTraceLogLevel(LOG_INFO);
         UnloadDroppedFiles(files);
@@ -622,7 +785,7 @@ void ui_draw_browse(void) {
         music_sort_albums();
     }
     
-    ui_update_search();
+    ui_update_input(search, &search_cursor, &search_focused);
     
     Rectangle frame = ui_get_frame();
 
@@ -635,9 +798,10 @@ void ui_draw_browse(void) {
         ui_draw_text(f*0.5f, f*0.5f+s, sv("click here to search..."), theme->mg, 0, 0, w - f);
     } else {
         float bar_size = 2;
-        float text_size = ui_draw_text(f*0.5f, f*0.5f+s, sv_from_sb(search), theme->fg, 0, 0, w - f);
-        if (text_size < w-f-bar_size && search_focused) {
-            ui_draw_rect(f*0.5f + text_size + 1, f*0.5f+s, bar_size, f, theme->fg_off);
+        float pre_cursor_text_size = ui_draw_text(f*0.5f, f*0.5f+s, sv_from_bytes(search->data, search_cursor), theme->fg, 0, 0, w - f);
+        ui_draw_text(f*0.5f + pre_cursor_text_size + (search_focused ? bar_size + 1 : 0), f*0.5f+s, sv_from_bytes(search->data + search_cursor, search->size-search_cursor), theme->fg, 0, 0, w - f - (pre_cursor_text_size + (search_focused ? bar_size + 1 : 0)));
+        if (pre_cursor_text_size < w-f-bar_size && search_focused) {
+            ui_draw_rect(f*0.5f + pre_cursor_text_size + 1, f*0.5f+s, bar_size, f, theme->fg_off);
         }
     }
 
@@ -897,7 +1061,6 @@ void ui_draw_main(void) {
 }
 
 void ui_draw(void) {
-    scroll_factor = GetScreenHeight()*0.1f;
     spinny_degrees += GetFrameTime()*100.f;
     ui_draw_menubar();
     ui_draw_statusbar();
@@ -921,6 +1084,7 @@ void ui_load_icons(void) {
     repeat_one = ui_load_icon(_REPEAT_ONE_PNG, _REPEAT_ONE_PNG_LENGTH);
     go_back = ui_load_icon(_GO_BACK_PNG, _GO_BACK_PNG_LENGTH);
     refresh = ui_load_icon(_REFRESH_PNG, _REFRESH_PNG_LENGTH);
+    add = ui_load_icon(_ADD_PNG, _ADD_PNG_LENGTH);
 }
 
 void ui_unload_icons(void) {
@@ -928,10 +1092,16 @@ void ui_unload_icons(void) {
     UnloadTexture(pause);
     UnloadTexture(backward);
     UnloadTexture(forward);
+    UnloadTexture(repeat);
+    UnloadTexture(repeat_one);
+    UnloadTexture(go_back);
+    UnloadTexture(refresh);
+    UnloadTexture(add);
 }
 
 void ui_load_font(float fs) {
     font_size = fs;
+    scroll_factor = font_size*3.0f;
 
     int codepoints[96 + 255] = {0};
     
@@ -948,7 +1118,9 @@ void ui_unload_font(void) {
 void ui_load(void) {
     ds = array_new(DrawStack, &main_arena);
     search = array_new(StringBuilder, &main_arena);
+    album_add = array_new(StringBuilder, &main_arena);
     themes = array_new(CustomThemes, &main_arena);
+    cwd = dir_get_cwd(&main_arena);
     ui_load_font(24.f);
     ui_load_icons();
     ui_set_icon();

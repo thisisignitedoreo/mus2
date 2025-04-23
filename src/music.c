@@ -106,6 +106,9 @@ void music_scan_file(String path) {
             if (sv_compare(array_get(album.tracks, j).path, meta.path)) return;
         }
         if (sv_compare(album.name, meta.album_name) && sv_compare(album.artists, meta.album_artist)) {
+            for (size_t j = 0; j < album.tracks->size; j++) {
+                if (array_get(album.tracks, j).track == meta.track) return;
+            }
             *array_push(array_set(albums, i)->tracks) = meta;
             return;
         }
@@ -119,6 +122,8 @@ void music_scan_file(String path) {
     };
     *array_push(albums) = album;
 }
+
+void music_sort_albums(void);
 
 void music_scan_folder(String path) {
     if (!dir_exists(path)) return;
@@ -134,6 +139,7 @@ void music_scan_folder(String path) {
         if (dir_exists(p)) { music_scan_folder(p); continue; }
         if (file_exists(p) && (sv_endswith(file, sv(".flac")) || sv_endswith(file, sv(".mp3")))) music_scan_file(p);
     }
+    music_sort_albums();
 }
 
 bool music_compare_alphabetically(String a, String b) {
@@ -282,18 +288,11 @@ void music_update(void) {
         size_t old_playing = playing;
         music_unload();
         playing = old_playing;
-        printf("EOF, repeat mode: ");
         if (repeat_mode == REPEAT_PLAYLIST) {
-            printf("playlist, old playing: %d, ", playing);
             playing = (playing+1) % (int) playlist->size;
-            printf("playing: %d\n", playing);
         } else if (repeat_mode == REPEAT_NONE) {
-            printf("none, old playing: %d, ", playing);
             if (playing < (int)playlist->size-1) playing += 1;
             else playing = -1;
-            printf("playing: %d\n", playing);
-        } else {
-            printf("one, playing: %d\n", playing);
         }
         if (playing >= 0) music_load(playing);
     }
