@@ -129,8 +129,6 @@ void ss_load_themes(void) {
         free(cstr);
         if (f == NULL) continue;
 
-        printf("LOADING "SV_FMT"\n", SvFmt(file));
-        
         CustomTheme ct = { sv("custom"), {0}, {0}, dark_theme };
         
         while (!feof(f) && !ferror(f)) {

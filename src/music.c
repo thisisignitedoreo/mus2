@@ -78,6 +78,31 @@ void music_load_coverart(size_t cache_index) {
     SetTraceLogLevel(LOG_INFO);
 }
 
+void music_resize_covers(void) {
+    array_foreach(cache, x) {
+	SongMetadata meta = array_get(cache, x);
+	Image i = ImageCopy(meta.cover_art);
+	UnloadTexture(meta.cover_art_8x);
+	ImageResize(&i, font_size*8.f, font_size*8.f);
+	array_set(cache, x)->cover_art_8x = LoadTextureFromImage(i);
+	UnloadTexture(meta.cover_art_6x);
+	ImageResize(&i, font_size*6.f, font_size*6.f);
+	array_set(cache, x)->cover_art_6x = LoadTextureFromImage(i);
+	UnloadImage(i);
+    }
+    array_foreach(albums, x) {
+	Album album = array_get(albums, x);
+	Image i = ImageCopy(album.cover);
+	UnloadTexture(album.cover_x8);
+	ImageResize(&i, font_size*8.f, font_size*8.f);
+	array_set(albums, x)->cover_x8 = LoadTextureFromImage(i);
+	UnloadTexture(album.cover_x6);
+	ImageResize(&i, font_size*6.f, font_size*6.f);
+	array_set(albums, x)->cover_x6 = LoadTextureFromImage(i);
+	UnloadImage(i);
+    }
+}
+
 SongMetadata music_get_metadata(String path) {
     // First, check the cache
     array_foreach(cache, i) {
@@ -199,6 +224,7 @@ bool paused = false;
 
 void music_load(int playlist_index) {
     // Load Music stream
+    if (current.frameCount) UnloadMusicStream(current);
     char* cstr = sv_to_cstr(array_get(playlist, playlist_index));
     current = LoadMusicStream(cstr);
     SetMusicVolume(current, volume);
@@ -261,12 +287,12 @@ void music_init(void) {
 
 void music_playlist_backward(void) {
     if (playing <= 0) return;
-    music_load(--playing);
+    music_load(playing-1);
 }
 
 void music_playlist_forward(void) {
     if (playing < 0 || (size_t) playing >= playlist->size-1) return;
-    music_load(++playing);
+    music_load(playing+1);
 }
 
 void music_deinit(void) {

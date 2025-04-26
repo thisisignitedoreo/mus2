@@ -49,6 +49,8 @@ char* tab_names[COUNT_TABS] = {
 
 MainTabs current_tab = TAB_PLAYLIST;
 
+void ui_reload_font(float, String);
+
 void ui_add_frame(float x, float y, float w, float h) {
     if (ds->size == 0) *array_push(ds) = (Rectangle) { x, y, w, h };
     else {
@@ -967,6 +969,8 @@ bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, in
 
 void ss_load_themes(void);
 
+int font_size_change = 0;
+
 void ui_draw_about(void) {
     Rectangle frame = ui_get_frame();
 
@@ -1002,6 +1006,13 @@ void ui_draw_about(void) {
         if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) theme_selected = 0;
         ui_theme_select(theme_selected);
     }
+
+    y += font_size*1.5f;
+    c = 0.f;
+    if (ui_select(0.5f*f + c, y + sc, sv("32px"), theme->mg_off, theme->fg, &font_size_change, 0)) ui_reload_font(32.f, (String) {0});
+    c += ui_measure_text(sv("32px")) + 0.5f;
+    if (ui_select(0.5f*f + c, y + sc, sv("48px"), theme->mg_off, theme->fg, &font_size_change, 1)) ui_reload_font(48.f, (String) {0});
+    c += ui_measure_text(sv("48px")) + 0.5f;
     
     y += font_size*1.5f;
 
@@ -1134,8 +1145,31 @@ void ui_load_font(float fs) {
     font = LoadFontFromMemory(".ttf", (unsigned char*) _FONT_TTF, _FONT_TTF_LENGTH, font_size, codepoints, 96+255);
 }
 
+void ui_load_font_file(String name, float fs) {
+    font_size = fs;
+    scroll_factor = font_size*3.0f;
+
+    int codepoints[96 + 255] = {0};
+    
+    for (int i = 0; i < 95; i++) codepoints[i] = 32 + i;
+    for (int i = 0; i < 255; i++) codepoints[96 + i] = 0x400 + i;
+
+    char* cstr = sv_to_cstr(name);
+    font = LoadFontEx(cstr, font_size, codepoints, 96+255);
+    free(cstr);
+}
+
 void ui_unload_font(void) {
     UnloadFont(font);
+}
+
+void ui_reload_font(float size, String name) {
+    ui_unload_font();
+    if (name.size) ui_load_font_file(name, size);
+    else ui_load_font(size);
+    music_resize_covers();
+    ui_unload_icons();
+    ui_load_icons();
 }
 
 void ui_load(void) {
