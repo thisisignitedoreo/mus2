@@ -76,6 +76,8 @@ void savestate_save(void) {
     ss_write_char(f, repeat_mode);
     ss_write_char(f, current_tab);
     ss_write_char(f, theme_selected);
+    ss_write_char(f, font_selected);
+    ss_write_float(f, font_size);
     
     fclose(f);
 }
@@ -192,12 +194,14 @@ void savestate_load(void) {
     current_tab = ss_read_char(f);
     theme_selected = ss_read_char(f);
     if (theme_selected < 2) ui_theme_select(theme_selected);
+    font_selected = ss_read_char(f);
+    font_size = ss_read_float(f);
     
     fclose(f);
 
     ss_load_themes();
     ss_load_fonts();
-    ui_reload_font(font_size, font_selected ? array_get(fonts, font_selected) : (String) {0});
+    ui_reload_font(font_size, font_selected ? array_get(fonts, font_selected-1) : (String) {0});
 
     if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) {
         theme_selected = 0;

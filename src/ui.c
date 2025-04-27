@@ -537,25 +537,26 @@ float aadd_scroll = 0.f;
 
 void ui_update_aadd(void) {
     String full_path = windows_path_convert(sv_from_sb(album_add));
-    if (file_exists(full_path)) {
-        aadd_real_path = full_path;
+    size_t path_size = album_add->size;
+    if (!dir_exists(full_path)) {
+        for (size_t i = album_add->size; i > 0; i--) {
+            char ch = array_get(album_add, i-1);
+            if (ch == '/' || ch == '\\') { path_size = i; break; }
+        }
+    }
+    String p = windows_path_convert(sv_from_bytes(album_add->data, path_size));
+    aadd_real_path = sv_copy(p, &main_arena); // windows_path_convert uses static memory
+    p = windows_path_convert(sv_from_bytes(album_add->data + path_size, album_add->size - path_size));
+    aadd_leftover_path = sv_copy(p, &main_arena);
+    
+    if (file_exists(aadd_real_path) && !dir_exists(aadd_real_path)) {
+        aadd_real_path = aadd_real_path;
         aadd_file = true;
         aadd_folder_exists = false;
     } else {
-        size_t path_size = album_add->size;
-        if (!dir_exists(full_path)) {
-            for (size_t i = album_add->size; i > 0; i--) {
-                char ch = array_get(album_add, i-1);
-                if (ch == '/' || ch == '\\') { path_size = i; break; }
-            }
-        }
-        String p = windows_path_convert(sv_from_bytes(album_add->data, path_size));
-        aadd_real_path = sv_copy(p, &main_arena); // windows_path_convert uses static memory
-        p = windows_path_convert(sv_from_bytes(album_add->data + path_size, album_add->size - path_size));
-        aadd_leftover_path = sv_copy(p, &main_arena);
         aadd_folder_exists = dir_exists(aadd_real_path);
         if (aadd_folder_exists) {
-            aadd_folder_content = dir_list(aadd_real_path, &main_arena);
+	    aadd_folder_content = dir_list(aadd_real_path, &main_arena);
         }
     }
 }
@@ -1250,9 +1251,9 @@ void ui_reload_font(float size, String name) {
     else ui_load_font(size);
     if (old_size != size) {
 	music_resize_covers();
-	ui_unload_icons();
-	ui_load_icons();
     }
+    ui_unload_icons();
+    ui_load_icons();
     SetWindowMinSize(ui_measure_text(sv("musplaylistalbumsbrowseabout100%")) + size*4.5f, size*12.5f);
 }
 
