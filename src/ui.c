@@ -274,11 +274,11 @@ void ui_draw_menubar(void) {
     bool loading = deferred_cover_array->size > 0;
 
     float mus_size = ui_measure_text(sv("mus"));
-    if (loading) ui_draw_spinny(font_size*0.25f + mus_size/2, font_size*0.75f, font_size*0.375f, theme->mg_off, theme->fg);
-    else ui_draw_text(font_size*0.25f, font_size*0.25f, sv("mus"), theme->fg, 0, 0, 1e9);
+    if (loading) ui_draw_spinny(font_size*0.5f + mus_size/2, font_size*0.75f, font_size*0.375f, theme->mg_off, theme->fg);
+    else ui_draw_text(font_size*0.5f, font_size*0.75f, sv("mus"), theme->fg, 0, 0.5f, 1e9);
 
     // tab buttons
-    float c = font_size*0.5f + mus_size;
+    float c = font_size*0.75f + mus_size;
     for (size_t i = 0; i < COUNT_TABS; i++) {
         c += font_size*0.25f; // outer padding
         String name = sv(tab_names[i]);
@@ -780,8 +780,8 @@ bool ui_string_in(String a, String b) {
 }
 
 bool ui_match_song(SongMetadata song, String s) {
-    bool matched = false;
-    matched = matched || ui_string_in(song.title, s);
+    bool matched = false; 
+   matched = matched || ui_string_in(song.title, s);
     matched = matched || ui_string_in(song.artist, s);
     return matched;
 }
@@ -950,6 +950,8 @@ define_array_struct(CustomThemes, CustomTheme)
 
 CustomThemes* themes;
 
+StringArray* fonts;
+
 void ui_theme_select(int t) {
     if (t == 0) theme = &dark_theme;
     if (t == 1) theme = &light_theme;
@@ -967,54 +969,132 @@ bool ui_select(float x, float y, String str, Color bg, Color fg, int* select, in
     return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
-void ss_load_themes(void);
+bool ui_selectb(float x, float y, String str, Color bg, Color fg, bool sel) {
+    float text_width = ui_measure_text(str);
+    bool hovered = ui_mouse_in(x, y, text_width + font_size*0.5f, font_size) && ui_mouse_in_frame();
+    ui_draw_rect(x, y, text_width + font_size*0.5f, font_size, sel ? fg : bg);
+    ui_draw_text(x + font_size*0.25f, y, str, sel ? bg : fg, 0, 0, text_width);
+    if (hovered) cursor = MOUSE_CURSOR_POINTING_HAND;
+    return hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+}
 
-int font_size_change = 0;
+void ss_load_themes(void);
+void ss_load_fonts(void);
+
+int font_selected = 0;
+
+void ui_draw_scale_select(float* c, float* y, float sc) {
+    Rectangle frame = ui_get_frame();
+    float f = font_size, w = frame.width;
+    String ui_scale = sv("UI scale:");
+    ui_draw_text(0.5f*f, *y + sc, ui_scale, theme->fg, 0, 0, 1e9);
+    *c += ui_measure_text(ui_scale) + 0.5f*f;
+    float sizes[] = {16.f, 20.f, 24.f, 28.f, 32.f, 36.f, 40.f};
+    size_t sizes_c = sizeof(sizes)/sizeof(*sizes);
+    for (size_t i = 0; i < sizes_c; i++) {
+	String str = sv((char*) TextFormat("%.1fx", sizes[i]/24.f));
+	if (*c + ui_measure_text(str) + f*0.75f > w) {
+	    *y += 1.25f*f; *c = 0.f;
+	}
+	float tx = 0.5f*f + *c, ty = *y + sc;
+	if (ui_selectb(tx, ty, str, theme->mg_off, theme->fg, font_size == sizes[i])) ui_reload_font(sizes[i], font_selected ? array_get(fonts, font_selected-1) : (String) {0});
+	*c += ui_measure_text(str) + f*0.75f;
+    }
+}
+
+void ui_draw_font_select(float* c, float* y, float sc) {
+    Rectangle frame = ui_get_frame();
+    float f = font_size, w = frame.width;
+    String label = sv("Select font:");
+    ui_draw_text(0.5f*f, *y + sc, label, theme->fg, 0, 0, 1e9);
+    *c += ui_measure_text(label) + 0.5f*f;
+    String str = sv("default");
+    if (*c + ui_measure_text(str) + f*0.75f > w) {
+	*y += 1.25f*f; *c = 0.f;
+    }
+    float tx = 0.5f*f + *c, ty = *y + sc;
+    if (ui_select(tx, ty, str, theme->mg_off, theme->fg, &font_selected, 0)) ui_reload_font(font_size, (String) {0});
+    *c += ui_measure_text(str) + f*0.75f;
+    array_foreach(fonts, i) {
+	String font = array_get(fonts, i);
+	String str = font;
+	for (size_t i = 0; i < str.size; i++) {
+	    if (sv_index(str, i) == '\\' || sv_index(str, i) == '/') {
+		str.bytes += i+1;
+		str.size -= i+1;
+		i = 0;
+	    }
+	}
+	for (size_t i = str.size; i > 0; i--) {
+	    if (sv_index(str, i-1) == '.') {
+		str.size = i-1;
+		break;
+	    }
+	}
+	if (*c + ui_measure_text(str) + f*0.75f > w) {
+	    *y += 1.25f*f; *c = 0.f;
+	}
+	float tx = 0.5f*f + *c, ty = *y + sc;
+	if (ui_select(tx, ty, str, theme->mg_off, theme->fg, &font_selected, i+1)) ui_reload_font(font_size, font);
+	*c += ui_measure_text(str) + f*0.75f;
+    }
+    if (*c + f*1.75f > w) {
+	*y += 1.25f*f; *c = 0.f;
+    }
+    tx = 0.5f*f + *c, ty = *y + sc;
+    if (ui_draw_button(tx, ty, refresh, theme->mg_off, theme->mg, theme->fg, true)) ss_load_fonts();
+    *c += ui_measure_text(str) + f*0.75f;
+}
+
+void ui_draw_theme_select(float* c, float* y, float sc) {
+    Rectangle frame = ui_get_frame();
+    float f = font_size;
+    *c += ui_draw_text(0.5f*f + *c, *y + sc, sv("Select theme:"), theme->fg, 0, 0, 1e9);
+    *c += f*0.25f;
+    if (ui_select(0.5f*f + *c, *y + sc, sv("dark"), theme->mg_off, theme->fg, &theme_selected, 0)) ui_theme_select(theme_selected);
+    *c += f*0.5f + ui_measure_text(sv("dark"));
+    *c += f*0.25f;
+    if (ui_select(0.5f*f + *c, *y + sc, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
+    *c += f*0.5f + ui_measure_text(sv("light"));
+    
+    array_foreach(themes, i) {
+        CustomTheme ct = array_get(themes, i);
+        float w = ui_measure_text(ct.name);
+        *c += f*0.25f;
+        if (*c + f + w >= frame.width-f*0.5f) {
+            *c = 0; *y += f*1.25f;
+        }
+        if (ui_select(0.5*f + *c, *y + sc, ct.name, theme->mg_off, theme->fg, &theme_selected, 2+i)) ui_theme_select(theme_selected);
+        *c += f*0.5f + w;
+        
+    }
+    *c += f*0.25f;
+    if (*c + f*1.5f >= frame.width-f*0.5f) {
+        *c = 0; *y += f*1.25f;
+    }
+    if (ui_draw_button(*c + f*0.5f, *y + sc, refresh, theme->mg_off, theme->mg, theme->fg, true)) {
+        ss_load_themes();
+        if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) theme_selected = 0;
+        ui_theme_select(theme_selected);
+    }
+}
 
 void ui_draw_about(void) {
     Rectangle frame = ui_get_frame();
 
     float f = font_size, w = frame.width, sc = about_scroll;
 
-    float c = 0;
     float y = 0.5f*f;
-    c += ui_draw_text(0.5f*f + c, y +sc, sv("Select theme:"), theme->fg, 0, 0, 1e9);
-    c += f*0.25f;
-    if (ui_select(0.5f*f + c, y +sc, sv("dark"), theme->mg_off, theme->fg, &theme_selected, 0)) ui_theme_select(theme_selected);
-    c += f*0.5f + ui_measure_text(sv("dark"));
-    c += f*0.25f;
-    if (ui_select(0.5*f + c, y +sc, sv("light"), theme->mg_off, theme->fg, &theme_selected, 1)) ui_theme_select(theme_selected);
-    c += f*0.5f + ui_measure_text(sv("light"));
-    
-    array_foreach(themes, i) {
-        CustomTheme ct = array_get(themes, i);
-        float w = ui_measure_text(ct.name);
-        c += f*0.25f;
-        if (c + f + w >= frame.width-f*0.5f) {
-            c = 0; y += f*1.25f;
-        }
-        if (ui_select(0.5*f + c, y +sc, ct.name, theme->mg_off, theme->fg, &theme_selected, 2+i)) ui_theme_select(theme_selected);
-        c += f*0.5f + w;
-        
-    }
-    c += f*0.25f;
-    if (c + f*1.5f >= frame.width-f*0.5f) {
-        c = 0; y += f*1.25f;
-    }
-    if (ui_draw_button(c + f*0.5f, y + sc, refresh, theme->mg_off, theme->mg, theme->fg, true)) {
-        ss_load_themes();
-        if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) theme_selected = 0;
-        ui_theme_select(theme_selected);
-    }
-
+    float c = 0;
+    ui_draw_theme_select(&c, &y, sc);
     y += font_size*1.5f;
-    c = 0.f;
-    if (ui_select(0.5f*f + c, y + sc, sv("32px"), theme->mg_off, theme->fg, &font_size_change, 0)) ui_reload_font(32.f, (String) {0});
-    c += ui_measure_text(sv("32px")) + 0.5f;
-    if (ui_select(0.5f*f + c, y + sc, sv("48px"), theme->mg_off, theme->fg, &font_size_change, 1)) ui_reload_font(48.f, (String) {0});
-    c += ui_measure_text(sv("48px")) + 0.5f;
-    
+    c = 0;
+    ui_draw_font_select(&c, &y, sc);
     y += font_size*1.5f;
+    c = 0;
+    ui_draw_scale_select(&c, &y, sc);
+    y += font_size*1.5f;
+    c = 0;
 
     if (theme_selected > 1) {
         CustomTheme ct = array_get(themes, theme_selected-2);
@@ -1164,12 +1244,16 @@ void ui_unload_font(void) {
 }
 
 void ui_reload_font(float size, String name) {
+    float old_size = font_size;
     ui_unload_font();
     if (name.size) ui_load_font_file(name, size);
     else ui_load_font(size);
-    music_resize_covers();
-    ui_unload_icons();
-    ui_load_icons();
+    if (old_size != size) {
+	music_resize_covers();
+	ui_unload_icons();
+	ui_load_icons();
+    }
+    SetWindowMinSize(ui_measure_text(sv("musplaylistalbumsbrowseabout100%")) + size*4.5f, size*12.5f);
 }
 
 void ui_load(void) {
@@ -1177,6 +1261,7 @@ void ui_load(void) {
     search = array_new(&main_arena);
     album_add = array_new(&main_arena);
     themes = array_new(&main_arena);
+    fonts = array_new(&main_arena);
     cwd = dir_get_cwd(&main_arena);
     ui_load_font(24.f);
     ui_load_icons();

@@ -81,6 +81,7 @@ void music_load_coverart(size_t cache_index) {
 void music_resize_covers(void) {
     array_foreach(cache, x) {
 	SongMetadata meta = array_get(cache, x);
+	if (!meta.cover_art.width) continue;
 	Image i = ImageCopy(meta.cover_art);
 	UnloadTexture(meta.cover_art_8x);
 	ImageResize(&i, font_size*8.f, font_size*8.f);
@@ -92,6 +93,7 @@ void music_resize_covers(void) {
     }
     array_foreach(albums, x) {
 	Album album = array_get(albums, x);
+	if (!album.cover.width) continue;
 	Image i = ImageCopy(album.cover);
 	UnloadTexture(album.cover_x8);
 	ImageResize(&i, font_size*8.f, font_size*8.f);

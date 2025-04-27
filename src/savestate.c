@@ -122,8 +122,8 @@ void ss_load_themes(void) {
     
     array_foreach(d, i) {
         String file = array_get(d, i);
-        if (dir_exists(file)) continue;
-        
+        if (dir_exists(file) || !sv_endswith(file, sv(".txt"))) continue;
+	
         char* cstr = sv_to_cstr(file);
         FILE* f = fopen(cstr, "r");
         free(cstr);
@@ -151,6 +151,20 @@ void ss_load_themes(void) {
     }
     dir_change_cwd(sv(".."));
     ui_theme_select(theme_selected);
+}
+
+void ss_load_fonts(void) {
+    fonts->size = 0;
+    if (!dir_exists(sv(".mus-themes"))) return;
+    StringArray* d = dir_list(sv(".mus-themes"), &main_arena);
+    dir_change_cwd(sv(".mus-themes"));
+    
+    array_foreach(d, i) {
+        String file = array_get(d, i);
+        if (dir_exists(file) || !sv_endswith(file, sv(".ttf"))) continue;
+	*array_push(fonts) = arena_sprintf(&main_arena, ".mus-themes/"SV_FMT, SvFmt(file));
+    }
+    dir_change_cwd(sv(".."));
 }
 
 void savestate_load(void) {
@@ -182,6 +196,8 @@ void savestate_load(void) {
     fclose(f);
 
     ss_load_themes();
+    ss_load_fonts();
+    ui_reload_font(font_size, font_selected ? array_get(fonts, font_selected) : (String) {0});
 
     if (theme_selected > 1 && themes->size+2 <= (size_t) theme_selected) {
         theme_selected = 0;
