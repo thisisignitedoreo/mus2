@@ -262,6 +262,7 @@ void music_unload(void) {
     if (playing < 0) return;
     playing = -1;
     UnloadMusicStream(current);
+    current.frameCount = 0;
 }
 
 void music_remove_from_playlist(size_t index) {
