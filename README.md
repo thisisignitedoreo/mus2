@@ -14,10 +14,13 @@ Features:
 ## Quickstart
 Download a binary from releases, or build from source:
 ```console
-$ python bundle.py
+$ python bundle.py  # todo: integrate this into build.zig
 ...
-$ ./build.sh
+$ zig build [-Doptimize=ReleaseFast]
 ```
+
+Currently does not support cross-compiling because of raylibs system library dependency on X11 and wayland stuff.
+Probably should crosscompile from Linux to Windows, not tested.
 
 ## Gallery
 ![Screenshot 1](screenshots/screenshot1.png)
