@@ -23,6 +23,7 @@ typedef enum {
     REPEAT_NONE = 0,
     REPEAT_PLAYLIST,
     REPEAT_ONE,
+    REPEAT_SHUFFLE,
     COUNT_REPEAT
 } RepeatMode;
 
@@ -31,8 +32,7 @@ float volume = 1.0f;
 
 typedef struct {
     String name, artists, year;
-    Image cover;
-    Texture cover_x6, cover_x8;
+    size_t cover_cache_entry;
     SongCache* tracks;
 } Album;
 
@@ -45,64 +45,43 @@ U32Array* deferred_cover_array;
 void music_load_coverart(size_t cache_index) {
     SetTraceLogLevel(LOG_NONE);
     SongMetadata meta = array_get(cache, cache_index);
-    TagImage im = tags_get_cover_art(&main_arena, meta.path);
-    Image img = {0};
-    if (sv_compare(im.mime_type, sv("image/jpeg")) || sv_compare(im.mime_type, sv("image/jpg"))) img = LoadImageFromMemory(".jpg", (unsigned char*) im.data.bytes, im.data.size);
-    else if (sv_compare(im.mime_type, sv("image/png"))) img = LoadImageFromMemory(".png", (unsigned char*) im.data.bytes, im.data.size);
+    if (!meta.cover_art.width) {
+        TagImage im = tags_get_cover_art(&main_arena, meta.path);
+        Image img = {0};
+        if (sv_compare(im.mime_type, sv("image/jpeg")) || sv_compare(im.mime_type, sv("image/jpg"))) img = LoadImageFromMemory(".jpg", (unsigned char*) im.data.bytes, im.data.size);
+        else if (sv_compare(im.mime_type, sv("image/png"))) img = LoadImageFromMemory(".png", (unsigned char*) im.data.bytes, im.data.size);
+        meta.cover_art = img;
+    }
+    if (meta.cover_art_6x.width) UnloadTexture(meta.cover_art_6x);
+    if (meta.cover_art_8x.width) UnloadTexture(meta.cover_art_8x);
+    Image img = meta.cover_art;
     Image img_copy = ImageCopy(img);
     ImageResize(&img_copy, font_size*8.f, font_size*8.f);
     Texture t3 = LoadTextureFromImage(img_copy);
     ImageResize(&img_copy, font_size*6.f, font_size*6.f);
     Texture t2 = LoadTextureFromImage(img_copy);
     UnloadImage(img_copy);
-    meta.cover_art = img;
     meta.cover_art_6x = t2;
     meta.cover_art_8x = t3;
     *array_set(cache, cache_index) = meta;
-    array_foreach(albums, i) {
-        Album album = array_get(albums, i);
-        SongCache* tracklist = album.tracks;
-        array_foreach(tracklist, j) {
-            SongMetadata m = array_get(tracklist, j);
-            if (!sv_compare(m.path, meta.path)) continue;
-            if (album.cover.width != 0) break;
-            if (sv_compare(m.path, meta.path)) {
-                album.cover = img;
-                album.cover_x6 = t2;
-                album.cover_x8 = t3;
-                *array_set(albums, i) = album;
-                break;
-            }
-        }
-    }
     SetTraceLogLevel(LOG_INFO);
 }
 
+void music_resize_cover(int cache_id) {
+    SongMetadata meta = array_get(cache, cache_id);
+    if (!meta.cover_art.width) return;
+    Image i = ImageCopy(meta.cover_art);
+    UnloadTexture(meta.cover_art_8x);
+    ImageResize(&i, font_size*8.f, font_size*8.f);
+    array_set(cache, cache_id)->cover_art_8x = LoadTextureFromImage(i);
+    UnloadTexture(meta.cover_art_6x);
+    ImageResize(&i, font_size*6.f, font_size*6.f);
+    array_set(cache, cache_id)->cover_art_6x = LoadTextureFromImage(i);
+    UnloadImage(i);
+}
+
 void music_resize_covers(void) {
-    array_foreach(cache, x) {
-	SongMetadata meta = array_get(cache, x);
-	if (!meta.cover_art.width) continue;
-	Image i = ImageCopy(meta.cover_art);
-	UnloadTexture(meta.cover_art_8x);
-	ImageResize(&i, font_size*8.f, font_size*8.f);
-	array_set(cache, x)->cover_art_8x = LoadTextureFromImage(i);
-	UnloadTexture(meta.cover_art_6x);
-	ImageResize(&i, font_size*6.f, font_size*6.f);
-	array_set(cache, x)->cover_art_6x = LoadTextureFromImage(i);
-	UnloadImage(i);
-    }
-    array_foreach(albums, x) {
-	Album album = array_get(albums, x);
-	if (!album.cover.width) continue;
-	Image i = ImageCopy(album.cover);
-	UnloadTexture(album.cover_x8);
-	ImageResize(&i, font_size*8.f, font_size*8.f);
-	array_set(albums, x)->cover_x8 = LoadTextureFromImage(i);
-	UnloadTexture(album.cover_x6);
-	ImageResize(&i, font_size*6.f, font_size*6.f);
-	array_set(albums, x)->cover_x6 = LoadTextureFromImage(i);
-	UnloadImage(i);
-    }
+    array_foreach(cache, x) music_resize_cover(x);
 }
 
 SongMetadata music_get_metadata(String path) {
@@ -125,6 +104,23 @@ SongMetadata music_get_metadata(String path) {
     return meta;
 }
 
+size_t music_get_metadata_index(String path) {
+    array_foreach(cache, i) {
+        SongMetadata meta = array_get(cache, i);
+        if (sv_compare(path, meta.path)) return i;
+    }
+    *array_push(deferred_cover_array) = (size_t) cache->size;
+    SongMetadata meta = {
+        path, tags_get_artist(&main_arena, path), tags_get_title(&main_arena, path),
+        tags_get_album_artist(&main_arena, path), tags_get_album(&main_arena, path),
+        tags_get_year(&main_arena, path),
+        {0}, {0}, {0},
+        tags_get_track_number(&main_arena, path),
+    };
+    *array_push(cache) = meta;
+    return cache->size-1;
+}
+
 void music_scan_file(String path) {
     SongMetadata meta = music_get_metadata(path);
     array_foreach(albums, i) {
@@ -144,8 +140,7 @@ void music_scan_file(String path) {
     *array_push(tracklist) = meta;
     Album album = {
         meta.album_name, meta.album_artist, meta.year,
-        meta.cover_art, meta.cover_art_6x, meta.cover_art_8x,
-        tracklist
+        music_get_metadata_index(path), tracklist
     };
     *array_push(albums) = album;
 }
@@ -216,6 +211,8 @@ void music_seek(float seek) {
     SeekMusicStream(current, seek);
 }
 
+I32Array* play_backbuffer = NULL;
+
 void music_set_repeat(RepeatMode r) {
     repeat_mode = r;
 }
@@ -271,6 +268,11 @@ void music_remove_from_playlist(size_t index) {
     if (playing == (int) index) music_unload();
     if (playing > (int) index) playing--;
     array_remove(playlist, index);
+    for (int i = play_backbuffer->size-1; i >= 0; i--) {
+        uint32_t w = array_get(play_backbuffer, i);
+        if (w > index) *array_set(play_backbuffer, i) = w-1;
+        if (w == index) array_remove(play_backbuffer, i);
+    }
 }
 
 void music_insert_into_playlist(String path) {
@@ -286,16 +288,7 @@ void music_init(void) {
     cache = array_new(&main_arena);
     albums = array_new(&main_arena);
     deferred_cover_array = array_new(&main_arena);
-}
-
-void music_playlist_backward(void) {
-    if (playing <= 0) return;
-    music_load(playing-1);
-}
-
-void music_playlist_forward(void) {
-    if (playing < 0 || (size_t) playing >= playlist->size-1) return;
-    music_load(playing+1);
+    play_backbuffer = array_new(&main_arena);
 }
 
 void music_deinit(void) {
@@ -311,18 +304,30 @@ void music_deinit(void) {
     SetTraceLogLevel(LOG_INFO);
 }
 
+void music_next(void) {
+    int old_playing = playing;
+    music_unload();
+    playing = old_playing;
+    if (repeat_mode == REPEAT_PLAYLIST) {
+        playing = (playing+1) % (int) playlist->size;
+    } else if (repeat_mode == REPEAT_NONE) {
+        if (playing < (int)playlist->size-1) playing += 1;
+        else playing = -1;
+    } else if (repeat_mode == REPEAT_SHUFFLE) {
+        while (playing == old_playing) playing = GetRandomValue(0, playlist->size-1);
+    }
+    *array_push(play_backbuffer) = old_playing;
+    if (playing >= 0) music_load(playing);
+}
+
+void music_previous(void) {
+    if (play_backbuffer->size > 0) {
+        int previous = array_pop(play_backbuffer);
+        music_load(previous);
+    }
+}
+
 void music_update(void) {
     if (playing >= 0) UpdateMusicStream(current);
-    if (playing >= 0 && !paused && !IsMusicStreamPlaying(current)) {
-        size_t old_playing = playing;
-        music_unload();
-        playing = old_playing;
-        if (repeat_mode == REPEAT_PLAYLIST) {
-            playing = (playing+1) % (int) playlist->size;
-        } else if (repeat_mode == REPEAT_NONE) {
-            if (playing < (int)playlist->size-1) playing += 1;
-            else playing = -1;
-        }
-        if (playing >= 0) music_load(playing);
-    }
+    if (playing >= 0 && !paused && !IsMusicStreamPlaying(current)) music_next();
 }

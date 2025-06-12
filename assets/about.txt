@@ -1,29 +1,13 @@
 Made by aciddev_ under a copyleft license.
 Free to use for anything.
 
-[1], [2], [3], [4] - Tab select
-[SPACEBAR] - Play/pause
-[<], [>] - Forward/Backward
+1  2  3  4  - Tab select
+SPACEBAR  - Play/pause
+<  >  - Forward/Backward
+R  - Change repeat mode
 
-Custom themes:
-Create a .mus-themes folder besides the executable,
-create file with any name, and put the following in it:
-
-name=X
-description=D
-author=L
-bg=Y
-mg_off=Y
-mg=Y
-fg_off=Y
-fg=Y
-link=Y
-
-Where X is any name (shown here), D is any string (shown below
-the name), L is any link and Y is a color in format of #XXXXXX
-where X is any HEX number. Restart mus2, it will appear here.
-Multiple custom themes at once are supported.
-Description and author may not be present.
+More info on the official website:
+<https://aciddev.neocities.org/mus2>
 
 Thank you for using mus! Star it pretty-please:
 <https://github.com/thisisignitedoreo/mus2> :^)

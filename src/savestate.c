@@ -3,8 +3,8 @@ void ss_write_int(FILE* f, int num) {
     fwrite(&num, 1, sizeof(int), f);
 }
 
-void ss_write_char(FILE* f, char num) {
-    fwrite(&num, 1, sizeof(char), f);
+void ss_write_char(FILE* f, unsigned char num) {
+    fwrite(&num, 1, sizeof(unsigned char), f);
 }
 
 void ss_write_float(FILE* f, float num) {
@@ -22,8 +22,8 @@ int ss_read_int(FILE* f) {
     return num;
 }
 
-char ss_read_char(FILE* f) {
-    char num = 0;
+unsigned char ss_read_char(FILE* f) {
+    unsigned char num = 0;
     fread(&num, 1, sizeof(char), f);
     return num;
 }

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
+#include <math.h>
 
 #include "raylib.h"
 
@@ -60,6 +62,9 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_ALWAYS_RUN);
 
     bool debug = false;
+    StringBuilder* debug_sb = array_new(&main_arena);
+
+    SetRandomSeed(time(NULL));
     
     InitWindow(600, 400, "mus2");
 
@@ -79,11 +84,12 @@ int main(void) {
         cursor = MOUSE_CURSOR_ARROW;
         
         if (IsKeyPressed(KEY_F1)) debug = !debug;
+        if (IsKeyPressed(KEY_F2)) TakeScreenshot(arena_printf(&main_arena, "mus2-screenshot-%.2lf.png", GetTime()));
 
         if (!search_focused && !album_add_focused) {
             if (IsKeyPressed(KEY_SPACE)) music_toggle_pause();
-            if (IsKeyPressed(KEY_LEFT)) music_playlist_backward();
-            if (IsKeyPressed(KEY_RIGHT)) music_playlist_forward();
+            if (IsKeyPressed(KEY_LEFT)) music_previous();
+            if (IsKeyPressed(KEY_RIGHT)) music_next();
             if (IsKeyPressed(KEY_R)) music_set_repeat((music_repeat()+1)%COUNT_REPEAT);
         
             if (IsKeyPressed(KEY_ONE)) current_tab = TAB_PLAYLIST;
@@ -116,16 +122,17 @@ int main(void) {
         if (debug) {
             size_t bytes = 0;
             for (Region* r = main_arena.begin; r; r = r->next) bytes += r->cursor;
-            StringBuilder* sb = array_new(&main_arena);
             int l = 0;
-            array_sb_printf(sb, "debug info:"); l++;
-            array_sb_printf(sb, "\nW: %dx%d", GetScreenWidth(), GetScreenHeight()); l++;
-            array_sb_printf(sb, "\nP: %dx%d", GetMouseX(), GetMouseY()); l++;
-            array_sb_printf(sb, "\nM: %.1f%s", bytes < 1024 ? (float) bytes : bytes < 1024*1024 ? (float) bytes/1024 : bytes < 1024*1024*1024 ? (float) bytes/1024/1024 : (float) bytes/1024/1024/1024, bytes < 1024 ? " B" : bytes < 1024*1024 ? " KiB" : bytes < 1024*1024*1024 ? " MiB" : " GiB"); l++;
-            array_sb_printf(sb, "\n%d FPS", GetFPS()); l++;
-            float w = ui_measure_text_multiline(sv_from_sb(sb));
+            debug_sb->size = 0;
+            array_sb_printf(debug_sb, "debug info:"); l++;
+            array_sb_printf(debug_sb, "\nW: %dx%d", GetScreenWidth(), GetScreenHeight()); l++;
+            array_sb_printf(debug_sb, "\nP: %dx%d", GetMouseX(), GetMouseY()); l++;
+            array_sb_printf(debug_sb, "\nM: %.2f%s", bytes < 1024 ? (float) bytes : bytes < 1024*1024 ? (float) bytes/1024 : bytes < 1024*1024*1024 ? (float) bytes/1024/1024 : (float) bytes/1024/1024/1024, bytes < 1024 ? " B" : bytes < 1024*1024 ? " KiB" : bytes < 1024*1024*1024 ? " MiB" : " GiB"); l++;
+            array_sb_printf(debug_sb, "\nFS: %.1fpx", font_size); l++;
+            array_sb_printf(debug_sb, "\n%d FPS (%.2f ms)", GetFPS(), GetFrameTime()*100); l++;
+            float w = ui_measure_text_multiline(sv_from_sb(debug_sb));
             ui_draw_rect(font_size*0.5f, font_size*0.5f, w + font_size, font_size*(1+l), theme->mg);
-            ui_draw_text_multiline(font_size, font_size, sv_from_sb(sb), theme->fg);
+            ui_draw_text_multiline(font_size, font_size, sv_from_sb(debug_sb), theme->fg);
         }
         
         EndDrawing();

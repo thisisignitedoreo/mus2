@@ -1,0 +1,27 @@
+.{
+    .name = .mus2,
+    .version = "1.2.0",
+
+    .fingerprint = 0x76f721ccee250aa9, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
+
+    .dependencies = .{
+        .strap = .{
+            .url = "git+https://github.com/thisisignitedoreo/strap#35a9ff61d503228cc9a92113e17d08c423e88130",
+            .hash = "strap-0.0.0-OjqRbjvQAADOksDOnsf-h8XMj25DUTwCJwDv-m_d-IxG",
+        },
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/refs/heads/master.tar.gz",
+            .hash = "raylib-5.5.0-whq8uCM5NgRDpPMxnJrRPpktefNrBwsXtNWWwn9e1l8S",
+        },
+    },
+    .paths = .{
+        "bundle.py",
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "assets",
+        "LICENSE",
+        "README.md",
+    },
+}

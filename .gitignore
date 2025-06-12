@@ -3,3 +3,5 @@ src/assets.h
 mus2
 mus2.exe
 app.res
+.zig-cache/
+zig-out/

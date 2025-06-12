@@ -1,4 +1,6 @@
 
+// hey! if you are reading this, "entrypoint" of this file is ui_draw() all the way down
+
 typedef struct {
     Color bg, mg_off, mg, fg_off, fg, link;
 } Theme;
@@ -28,7 +30,7 @@ DrawStack* ds;
 
 Font font;
 int cursor = MOUSE_CURSOR_ARROW;
-Texture play, pause, backward, forward, repeat, repeat_one, go_back, refresh, add;
+Texture play, pause, backward, forward, left, right, no_repeat, repeat, repeat_one, go_back, refresh, add, shuffle, emoticon, apple;
 bool seeking = false;
 float scroll_factor = 0;
 
@@ -354,23 +356,27 @@ void ui_draw_statusbar(void) {
         seek = music_get_playing_seek();
         length = music_get_playing_length();
     } else { seek = 0.f; length = 0.f; }
+
+    String long_str = sv((char*) TextFormat("%s:99", length >= 600 ? "99" : "9"));
+    float long_str_l = ui_measure_text(long_str);
     
     c = 0;
-    c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) seek)/60, ((int) seek)%60)), theme->fg, 0, 0, 1e9);
+    ui_draw_text(f*0.5f + c + long_str_l, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) seek)/60, ((int) seek)%60)), theme->fg, 1, 0, 1e9);
+    c += long_str_l;
     c += f/4.f;
     c += ui_draw_text(f*0.5f + c, f*2.f, sv("/"), theme->fg_off, 0, 0, 1e9);
     c += f/4.f;
     c += ui_draw_text(f*0.5f + c, f*2.f, sv((char*) TextFormat("%d:%02d", ((int) length)/60, ((int) length)%60)), theme->fg, 0, 0, 1e9);
     
     // BUTTONS
-    bool back = ui_draw_button(w - f*4.5f, f*2.f, backward, theme->mg_off, theme->mg, theme->fg, loaded);
+    bool back = ui_draw_button(w - f*4.5f, f*2.f, backward, theme->mg_off, theme->mg, play_backbuffer->size ? theme->fg : theme->fg_off, loaded && play_backbuffer->size);
     bool pause_ = ui_draw_button(w - f*3.5f, f*2.f, music_paused() ? play : pause, theme->mg_off, theme->mg, theme->fg, loaded);
     bool forw = ui_draw_button(w - f*2.5f, f*2.f, forward, theme->mg_off, theme->mg, theme->fg, loaded);
-    bool repeat_ = ui_draw_button(w - f*1.5f, f*2.f, music_repeat() == REPEAT_ONE ? repeat_one : repeat, theme->mg_off, theme->mg, music_repeat() ? theme->fg : theme->fg_off, loaded);
+    bool repeat_ = ui_draw_button(w - f*1.5f, f*2.f, music_repeat() == REPEAT_ONE ? repeat_one : music_repeat() == REPEAT_SHUFFLE ? shuffle : music_repeat() ? repeat : no_repeat, theme->mg_off, theme->mg, theme->fg, loaded);
 
-    if (back) music_playlist_backward();
+    if (back) music_previous();
     if (pause_) music_toggle_pause();
-    if (forw) music_playlist_forward();
+    if (forw) music_next();
     if (repeat_) music_set_repeat((music_repeat()+1)%COUNT_REPEAT);
     
     // SEEKBAR
@@ -436,7 +442,7 @@ void ui_scrollbar(float size, float scroll) {
     if (vp_size >= size) return;
     float scrolled = scroll / (size - vp_size);
     int knob_size = font_size*0.66f;
-    ui_draw_rect(frame.width-font_size*0.25f, 0, font_size*0.25f, frame.height, theme->bg);
+    //ui_draw_rect(frame.width-font_size*0.25f, 0, font_size*0.25f, frame.height, theme->bg);
     ui_draw_rect(frame.width-font_size*0.25f, scrolled*(frame.height-knob_size), font_size*0.25f, knob_size, theme->mg_off);
 }
 
@@ -461,10 +467,15 @@ void ui_draw_playlist(void) {
     if (playlist->size == 0) {
         ui_draw_text(frame.width/2, frame.height/2, sv("whoa, quite empty here..."), theme->mg, 0.5f, 0.5f, 1e9);
     } else {
-        float p = playlist_scroll, f = font_size, w = frame.width, h = frame.height;
+        float p = playlist_scroll, f = font_size, w = frame.width, h = frame.height, number_w = 0;
         String old_album_name = {0};
         float h1 = playlist->size * f + f;
         if (playing >= 0) h1 += f*6.5f;
+        
+        array_foreach(playlist, i) {
+            float nw = ui_measure_text(sv((char*) TextFormat("%d. ", i+1)));
+            if (nw > number_w) number_w = nw;
+        }
         
         array_foreach(playlist, i) {
             if (i*f + 0.5f*f + f + playlist_scroll < 0) continue;
@@ -488,7 +499,8 @@ void ui_draw_playlist(void) {
                 ui_draw_text(f*0.5f, p + f*(0.5f + i), meta.path, gray, 0, 0, w-f);
                 old_album_name = sv_from_bytes(NULL, 0);
             } else {
-                c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv((char*) TextFormat("%d. ", i+1)), gray, 0, 0, w - f - c);
+                ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv((char*) TextFormat("%d. ", i+1)), gray, 0, 0, w - f - c);
+                c += number_w;
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.artist, theme->fg, 0, 0, w - f - c);
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), sv(" - "), gray, 0, 0, w - f - c);
                 c += ui_draw_text(f*0.5f + c, p + f*(0.5f + i), meta.title, theme->fg, 0, 0, w - f - c);
@@ -586,7 +598,7 @@ void ui_draw_albums(void) {
         if (album.year.size == 0) album.year = sv("<none>");
         
         float f = font_size, w = frame.width, s = i_album_scroll;
-        ui_draw_texture(f*0.5f, f*0.5f+s, f*8.f, f*8.f, album.cover_x8);
+        ui_draw_texture(f*0.5f, f*0.5f+s, f*8.f, f*8.f, array_get(cache, album.cover_cache_entry).cover_art_8x);
         ui_draw_text(f*9.f, f*0.5f+s, album.name, theme->fg, 0, 0, w - f*9.5f);
         ui_draw_text(f*9.f, f*1.5f+s, album.artists, theme->mg, 0, 0, w - f*9.5f);
         ui_draw_text(f*9.f, f*2.5f+s, album.year, theme->mg, 0, 0, w - f*9.5f);
@@ -707,7 +719,7 @@ void ui_draw_albums(void) {
             }
             
             ui_draw_rect(x, y, rw, rh, hovered ? theme->mg_off : theme->bg);
-            ui_draw_texture(x + f*0.5f, y + f*0.5f, f*6.f, f*6.f, album.cover_x6);
+            ui_draw_texture(x + f*0.5f, y + f*0.5f, f*6.f, f*6.f, array_get(cache, album.cover_cache_entry).cover_art_6x);
             String name = album.name.size ? album.name : sv("<none>");
             String artists = album.artists.size ? album.artists : sv("<none>");
             String year = album.year;
@@ -987,12 +999,33 @@ int font_selected = 0;
 void ui_draw_scale_select(float* c, float* y, float sc) {
     Rectangle frame = ui_get_frame();
     float f = font_size, w = frame.width;
-    String ui_scale = sv("UI scale:");
-    ui_draw_text(0.5f*f, *y + sc, ui_scale, theme->fg, 0, 0, 1e9);
-    *c += ui_measure_text(ui_scale) + 0.5f*f;
+    *c += ui_draw_text(0.5f*f, *y + sc, sv("UI scale:"), theme->fg, 0, 0, 1e9) + 0.5f*f;
+    
     float sizes[] = {16.f, 20.f, 24.f, 28.f, 32.f, 36.f, 40.f};
     size_t sizes_c = sizeof(sizes)/sizeof(*sizes);
-    for (size_t i = 0; i < sizes_c; i++) {
+    (void)sizes_c; (void)w;
+
+    if (ui_draw_button(0.5f*f + *c, *y + sc, left, theme->mg_off, theme->mg, theme->fg, sizes[0] != font_size)) {
+        float size = 24.f;
+        for (size_t i = 0; i < sizes_c; i++) {
+            if (sizes[i] == font_size) size = sizes[i-1];
+        }
+        ui_reload_font(size, font_selected ? array_get(fonts, font_selected-1) : (String) {0});
+    }
+    *c += f*1.25;
+    String str = sv((char*) TextFormat("%.1fx", font_size/24.f));
+    ui_draw_rect(0.5f*f + *c - f*0.25f, *y + sc, ui_measure_text(str) + f*0.5f, font_size, theme->mg_off);
+    *c += ui_draw_text(0.5f*f + *c, *y + sc, str, theme->fg, 0, 0, 1e9) + f*0.25f;
+    if (ui_draw_button(0.5f*f + *c, *y + sc, right, theme->mg_off, theme->mg, theme->fg, sizes[sizes_c-1] != font_size)) {
+        float size = 24.f;
+        for (size_t i = 0; i < sizes_c; i++) {
+            if (sizes[i] == font_size) size = sizes[i+1];
+        }
+        ui_reload_font(size, font_selected ? array_get(fonts, font_selected-1) : (String) {0});
+    }
+
+    *c += f*1.25;
+    /*for (size_t i = 0; i < sizes_c; i++) {
 	String str = sv((char*) TextFormat("%.1fx", sizes[i]/24.f));
 	if (*c + ui_measure_text(str) + f*0.75f > w) {
 	    *y += 1.25f*f; *c = 0.f;
@@ -1000,7 +1033,7 @@ void ui_draw_scale_select(float* c, float* y, float sc) {
 	float tx = 0.5f*f + *c, ty = *y + sc;
 	if (ui_selectb(tx, ty, str, theme->mg_off, theme->fg, font_size == sizes[i])) ui_reload_font(sizes[i], font_selected ? array_get(fonts, font_selected-1) : (String) {0});
 	*c += ui_measure_text(str) + f*0.75f;
-    }
+    }*/
 }
 
 void ui_draw_font_select(float* c, float* y, float sc) {
@@ -1080,6 +1113,8 @@ void ui_draw_theme_select(float* c, float* y, float sc) {
     }
 }
 
+float snake_run_time = 0;
+
 void ui_draw_about(void) {
     Rectangle frame = ui_get_frame();
 
@@ -1156,9 +1191,48 @@ void ui_draw_about(void) {
         n++;
     }
     n++;
+    if (ui_draw_button(f*0.5f, n*f + start_text + sc, emoticon, theme->mg_off, theme->mg, theme->fg, true)) {
+        current_tab = 255;
+        snake_run_time = GetTime();
+    }
+    n++;
     ui_scrollable(n*f + start_text, &about_scroll);
     ui_scrollbar(n*f + start_text, about_scroll);
 }
+
+typedef struct { int x; int y; } IVec2;
+
+define_array_struct(IV2Array, IVec2)
+
+IV2Array* snake;
+int snake_dir = 0;
+float snake_movement_opp = 0;
+U32Array* snake_key_queue;
+IVec2 snake_apple = {0};
+float snake_speed = 0;
+
+bool iv2_equal(IVec2 a, IVec2 b) {
+    return a.x == b.x && a.y == b.y;
+}
+
+bool iv2a_duplicates(IV2Array* a) {
+    array_foreach(a, i) {
+        array_foreach(a, j) {
+            if (i != j && iv2_equal(array_get(a, i), array_get(a, j))) return true;
+        }
+    }
+    return false;
+}
+
+bool iv2_in_iv2a(IVec2 needle, IV2Array* haystack) {
+    array_foreach(haystack, i) {
+        IVec2 hay = array_get(haystack, i);
+        if (iv2_equal(hay, needle)) return true;
+    }
+    return false;
+}
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 void ui_draw_main(void) {
     ui_add_frame(0, font_size*1.5f, GetScreenWidth(), GetScreenHeight() - font_size*5.f);
@@ -1170,16 +1244,94 @@ void ui_draw_main(void) {
     else if (current_tab == TAB_ALBUMS) ui_draw_albums();
     else if (current_tab == TAB_BROWSE) ui_draw_browse();
     else if (current_tab == TAB_ABOUT) ui_draw_about();
-    else ui_draw_text(frame.width/2, frame.height/2, sv(":)"), theme->fg, 0.5f, 0.5f, 1e9);
+    else if (current_tab == 255) {
+        int field_width = frame.width/font_size, field_height = frame.height/font_size;
+        int x = (int)frame.width % (int) font_size / 2, y = (int)frame.height % (int) font_size / 2;
+        if (!snake->size) {
+            snake_dir = 4;
+            *array_push(snake) = (IVec2) { field_width/2, field_height/2 };
+            snake_apple = (IVec2) { GetRandomValue(0, field_width-1), GetRandomValue(0, field_height-1) };
+            while (iv2_in_iv2a(snake_apple, snake)) snake_apple = (IVec2) { GetRandomValue(0, field_width-1), GetRandomValue(0, field_height-1) };
+        }
+
+        int key = GetKeyPressed();
+        while (key) {
+            if (key == KEY_A) *(uint32_t*)array_add(snake_key_queue, 0) = 1;
+            if (key == KEY_W) *(uint32_t*)array_add(snake_key_queue, 0) = 0;
+            if (key == KEY_D) *(uint32_t*)array_add(snake_key_queue, 0) = 3;
+            if (key == KEY_S) *(uint32_t*)array_add(snake_key_queue, 0) = 2;
+            key = GetKeyPressed();
+        }
+        
+        snake_movement_opp += GetFrameTime();
+
+        snake_speed = fmaxf(-0.002f*(float)snake->size + 0.25f, 0.1f);
+
+        if (snake_movement_opp > snake_speed) {
+            if (snake_key_queue->size) {
+                int new_dir = array_pop(snake_key_queue);
+                if (snake_dir == 0 && new_dir != 2) snake_dir = new_dir;
+                else if (snake_dir == 1 && new_dir != 3) snake_dir = new_dir;
+                else if (snake_dir == 2 && new_dir != 0) snake_dir = new_dir;
+                else if (snake_dir == 3 && new_dir != 1) snake_dir = new_dir;
+                else if (snake_dir == 4) snake_dir = new_dir;
+            }
+            IVec2 w = array_get(snake, snake->size-1);
+            if (snake_dir == 1) {
+                *array_push(snake) = (IVec2) { w.x == 0 ? field_width - 1 : w.x - 1, w.y };
+            } else if (snake_dir == 2) {
+                *array_push(snake) = (IVec2) { w.x, w.y == field_height - 1 ? 0 : w.y + 1 };
+            } else if (snake_dir == 3) {
+                *array_push(snake) = (IVec2) { w.x == field_width - 1 ? 0 : w.x + 1, w.y };
+            } else if (snake_dir == 0) {
+                *array_push(snake) = (IVec2) { w.x, w.y == 0 ? field_height - 1 : w.y - 1 };
+            } else {}
+            if (snake_dir < 4) {
+                if (iv2_equal(snake_apple, array_get(snake, snake->size-1))) {
+                    snake_apple = (IVec2) { GetRandomValue(0, field_width-1), GetRandomValue(0, field_height-1) };
+                    while (iv2_in_iv2a(snake_apple, snake)) snake_apple = (IVec2) { GetRandomValue(0, field_width-1), GetRandomValue(0, field_height-1) };
+                } else array_remove(snake, 0);
+            }
+            snake_movement_opp -= snake_speed;
+        }
+
+        if (iv2a_duplicates(snake)) {
+            snake->size = 0;
+        }
+        
+        array_foreach(snake, i) {
+            IVec2 v = array_get(snake, i);
+            if (v.x >= field_width || v.y >= field_height) {
+                snake->size = 0;
+                break;
+            }
+            if (snake->size-1 == i) {
+                ui_draw_button(x + v.x*font_size, y + v.y*font_size, emoticon, theme->fg, theme->bg, theme->bg, false);
+            } else {
+                ui_draw_rect(x + v.x*font_size, y + v.y*font_size, font_size, font_size, theme->fg);
+            }
+        }
+        ui_draw_button(x + snake_apple.x*font_size, y + snake_apple.y*font_size, apple, theme->bg, theme->fg, theme->fg, false);
+
+        ui_draw_text(0.5f*font_size, 0.5f*font_size, sv((char*) TextFormat("Length: %d", snake->size)), theme->fg, 0, 0, 1e9);
+        float time_since_snake = GetTime() - snake_run_time;
+        if (time_since_snake < 5.f) {
+            Color c = theme->fg;
+            c.a = (int) (min(1, -0.5f*time_since_snake + 2.5f)*255);
+            ui_draw_text(0.5f*font_size, 1.5f*font_size, sv("WASD to move. Walls teleport."), c, 0, 0, 1e9);
+        }
+    } else {
+        ui_draw_button(frame.width/2 - font_size/2, frame.height/2 - font_size/2, emoticon, theme->bg, theme->mg, theme->fg, false);
+    }
     
     ui_pop_frame();
 }
 
 void ui_draw(void) {
     spinny_degrees += GetFrameTime()*100.f;
+    ui_draw_main();
     ui_draw_menubar();
     ui_draw_statusbar();
-    ui_draw_main();
 }
 
 Texture ui_load_icon(char* ptr, size_t size) {
@@ -1195,11 +1347,17 @@ void ui_load_icons(void) {
     pause = ui_load_icon(_PAUSE_PNG, _PAUSE_PNG_LENGTH);
     backward = ui_load_icon(_BACKWARD_PNG, _BACKWARD_PNG_LENGTH);
     forward = ui_load_icon(_FORWARD_PNG, _FORWARD_PNG_LENGTH);
+    left = ui_load_icon(_LEFT_PNG, _LEFT_PNG_LENGTH);
+    right = ui_load_icon(_RIGHT_PNG, _RIGHT_PNG_LENGTH);
+    shuffle = ui_load_icon(_SHUFFLE_PNG, _SHUFFLE_PNG_LENGTH);
+    no_repeat = ui_load_icon(_NO_REPEAT_PNG, _NO_REPEAT_PNG_LENGTH);
     repeat = ui_load_icon(_REPEAT_PNG, _REPEAT_PNG_LENGTH);
     repeat_one = ui_load_icon(_REPEAT_ONE_PNG, _REPEAT_ONE_PNG_LENGTH);
     go_back = ui_load_icon(_GO_BACK_PNG, _GO_BACK_PNG_LENGTH);
     refresh = ui_load_icon(_REFRESH_PNG, _REFRESH_PNG_LENGTH);
     add = ui_load_icon(_ADD_PNG, _ADD_PNG_LENGTH);
+    emoticon = ui_load_icon(_EMOTICON_PNG, _EMOTICON_PNG_LENGTH);
+    apple = ui_load_icon(_APPLE_PNG, _APPLE_PNG_LENGTH);
 }
 
 void ui_unload_icons(void) {
@@ -1207,11 +1365,17 @@ void ui_unload_icons(void) {
     UnloadTexture(pause);
     UnloadTexture(backward);
     UnloadTexture(forward);
+    UnloadTexture(left);
+    UnloadTexture(right);
+    UnloadTexture(no_repeat);
     UnloadTexture(repeat);
     UnloadTexture(repeat_one);
     UnloadTexture(go_back);
     UnloadTexture(refresh);
     UnloadTexture(add);
+    UnloadTexture(shuffle);
+    UnloadTexture(emoticon);
+    UnloadTexture(apple);
 }
 
 void ui_load_font(float fs) {
@@ -1250,11 +1414,13 @@ void ui_reload_font(float size, String name) {
     if (name.size) ui_load_font_file(name, size);
     else ui_load_font(size);
     if (old_size != size) {
-	music_resize_covers();
+        array_foreach(cache, i) {
+            *array_push(deferred_cover_array) = i;
+        }
     }
     ui_unload_icons();
     ui_load_icons();
-    SetWindowMinSize(ui_measure_text(sv("musplaylistalbumsbrowseabout100%")) + size*4.5f, size*12.5f);
+    SetWindowMinSize(ui_measure_text(sv("musplaylistalbumsbrowseabout100%")) + size*4.25f, size*12.f);
 }
 
 void ui_load(void) {
@@ -1263,6 +1429,8 @@ void ui_load(void) {
     album_add = array_new(&main_arena);
     themes = array_new(&main_arena);
     fonts = array_new(&main_arena);
+    snake = array_new(&main_arena);
+    snake_key_queue = array_new(&main_arena);
     cwd = dir_get_cwd(&main_arena);
     ui_load_font(24.f);
     ui_load_icons();
