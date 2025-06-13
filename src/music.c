@@ -246,7 +246,7 @@ float music_get_volume(void) {
 
 void music_toggle_pause(void) {
     if (playing < 0) return;
-    if (paused) PlayMusicStream(current);
+    if (paused) ResumeMusicStream(current);
     else PauseMusicStream(current);
     paused = !paused;
 }
