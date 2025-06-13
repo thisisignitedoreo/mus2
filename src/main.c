@@ -23,6 +23,7 @@ float clamp(float x, float a, float b) {
 float font_size;
 
 #include "assets.h"
+#include "meta.h"
 #include "win32.h"
 
 #ifdef _WIN32
@@ -68,6 +69,9 @@ int main(void) {
     
     InitWindow(600, 400, "mus2");
 
+    float savestate_timer = 0.0;
+    float savestate_autosave = 150.; // every 2:30 minutes
+
     SetWindowMinSize(400, 300);
     SetExitKey(0);
     
@@ -100,6 +104,12 @@ int main(void) {
             if (IsKeyPressed(KEY_THREE)) {
                 search_focused = true; GetCharPressed();
             }
+        }
+
+        savestate_timer += GetFrameTime();
+        if (savestate_timer >= savestate_autosave) {
+            savestate_save();
+            savestate_timer -= savestate_autosave;
         }
 
         if (deferred_cover_array->size > 0) {

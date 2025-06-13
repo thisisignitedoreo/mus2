@@ -54,6 +54,7 @@ String ss_read_line(FILE* f) {
 }
 
 void savestate_save(void) {
+    printf("DEBUG: savestate saved\n");
     FILE* f = fopen(".mus-savestate", "wb");
     if (f == NULL) return;
     

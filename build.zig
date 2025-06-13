@@ -1,4 +1,5 @@
 const std = @import("std");
+const buildzon = @import("build.zig.zon");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -28,14 +29,29 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const config: []const u8 = "-DSUPPORT_FILEFORMAT_FLAC";
     const raylib = b.dependency("raylib", .{
         .target = target,
         .optimize = optimize,
+        .config = config,
         .shared = false,
     });
 
     exe.linkLibrary(strap.artifact("strap"));
     exe.linkLibrary(raylib.artifact("raylib"));
+
+    const meta = std.fmt.allocPrint(b.allocator,
+        \\// auto-generated
+        \\#define VERSION "{s}"
+        \\#define ARCH "{s}-{s}-{s}"
+        \\#define OPTIMIZE "{s}"
+        \\#define BUILD_DATE {}
+    , .{ buildzon.version, @tagName(target.result.cpu.arch), @tagName(target.result.os.tag), @tagName(target.result.abi), @tagName(optimize), std.time.timestamp() }) catch @panic("OOM");
+
+    const file = b.addWriteFile("meta.h", meta);
+
+    exe.step.dependOn(&file.step);
+    exe.addIncludePath(file.getDirectory());
 
     b.installArtifact(exe);
 

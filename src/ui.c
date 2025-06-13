@@ -1150,6 +1150,10 @@ void ui_draw_about(void) {
             y += font_size;
         }
     }
+
+    float width = ui_draw_text(f*0.5f, y + sc + 0.25f*f, sv((char*) TextFormat("mus2 v%s ", VERSION)), theme->fg, 0, 0, 1e9);
+    ui_draw_text(f*0.5f + width, y + sc + 0.25f*f, sv((char*) TextFormat("(%s %s; %d)", ARCH, OPTIMIZE, BUILD_DATE)), theme->mg, 0, 0, 1e9);
+    y += 1.25f*font_size;
     
     float start_text = y;
     

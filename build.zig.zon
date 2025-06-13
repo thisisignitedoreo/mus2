@@ -1,6 +1,6 @@
 .{
     .name = .mus2,
-    .version = "1.2.0",
+    .version = "1.4.0",
 
     .fingerprint = 0x76f721ccee250aa9, // Changing this has security and trust implications.
     .minimum_zig_version = "0.14.0",
