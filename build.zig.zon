@@ -7,8 +7,8 @@
 
     .dependencies = .{
         .strap = .{
-            .url = "git+https://github.com/thisisignitedoreo/strap#35a9ff61d503228cc9a92113e17d08c423e88130",
-            .hash = "strap-0.0.0-OjqRbjvQAADOksDOnsf-h8XMj25DUTwCJwDv-m_d-IxG",
+            .url = "git+https://github.com/thisisignitedoreo/strap.git#a9912e409af83a954f6889559748da1b4f50149f",
+            .hash = "strap-0.0.0-OjqRbt7SAAAGdDMj4M4bz1F2QBfZOyYYvIk8uOOqHupj",
         },
         .raylib = .{
             .url = "https://github.com/raysan5/raylib/archive/refs/heads/master.tar.gz",

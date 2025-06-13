@@ -31,7 +31,7 @@ pub fn build(b: *std.Build) void {
     const raylib = b.dependency("raylib", .{
         .target = target,
         .optimize = optimize,
-        .linux_display_backend = .X11,
+        .shared = false,
     });
 
     exe.linkLibrary(strap.artifact("strap"));
