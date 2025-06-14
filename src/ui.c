@@ -1152,7 +1152,9 @@ void ui_draw_about(void) {
     }
 
     float width = ui_draw_text(f*0.5f, y + sc + 0.25f*f, sv((char*) TextFormat("mus2 v%s ", VERSION)), theme->fg, 0, 0, 1e9);
-    ui_draw_text(f*0.5f + width, y + sc + 0.25f*f, sv((char*) TextFormat("(%s %s; %d)", ARCH, OPTIMIZE, BUILD_DATE)), theme->mg, 0, 0, 1e9);
+    time_t time = BUILD_DATE;
+    struct tm* tm = gmtime(&time);
+    ui_draw_text(f*0.5f + width, y + sc + 0.25f*f, sv((char*) TextFormat("(%s %s; %04d-%02d-%02d %02d:%02d:%02d UTC)", ARCH, OPTIMIZE, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec)), theme->mg, 0, 0, 1e9);
     y += 1.25f*font_size;
     
     float start_text = y;
